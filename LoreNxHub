@@ -1,0 +1,523 @@
+-- MM2 MOBILE ULTIMATE v4.0 (RUZHUB STYLE)
+-- ДЛЯ ANDROID/IOS (Arceus X, Hydrogen, Delta)
+
+local Player = game.Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+-- ===== КНОПКА ОТКРЫТИЯ (RuzHub стиль) =====
+local OpenButton = Instance.new("ImageButton")
+OpenButton.Size = UDim2.new(0, 60, 0, 60)
+OpenButton.Position = UDim2.new(0.02, 0, 0.85, 0)
+OpenButton.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+OpenButton.BackgroundTransparency = 0.2
+OpenButton.BorderSizePixel = 3
+OpenButton.BorderColor3 = Color3.fromRGB(0, 200, 255)
+OpenButton.Image = "rbxassetid://6031090973"
+OpenButton.ImageRectOffset = Vector2.new(100, 100)
+OpenButton.ImageRectSize = Vector2.new(200, 200)
+OpenButton.Parent = Player.PlayerGui
+
+-- Обводка кнопки (эффект свечения)
+local Glow = Instance.new("UICorner")
+Glow.CornerRadius = UDim.new(0, 30)
+Glow.Parent = OpenButton
+
+local Glow2 = Instance.new("UIStroke")
+Glow2.Thickness = 3
+Glow2.Color = Color3.fromRGB(0, 200, 255)
+Glow2.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+Glow2.Parent = OpenButton
+
+-- ===== ОСНОВНОЕ МЕНЮ =====
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = Player.PlayerGui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Enabled = false
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 400, 0, 550)
+MainFrame.Position = UDim2.new(0.5, -200, 0.5, -275)
+MainFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 18)
+MainFrame.BackgroundTransparency = 0.1
+MainFrame.BorderSizePixel = 2
+MainFrame.BorderColor3 = Color3.fromRGB(0, 200, 255)
+MainFrame.Active = true
+MainFrame.Parent = ScreenGui
+
+-- СКРУГЛЕНИЕ УГЛОВ
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 12)
+Corner.Parent = MainFrame
+
+-- ===== ВЕРХНЯЯ ПАНЕЛЬ (как в RuzHub) =====
+local TopPanel = Instance.new("Frame")
+TopPanel.Size = UDim2.new(1, 0, 0, 50)
+TopPanel.BackgroundColor3 = Color3.fromRGB(15, 15, 35)
+TopPanel.BackgroundTransparency = 0.2
+TopPanel.BorderSizePixel = 0
+TopPanel.Parent = MainFrame
+
+local TopCorner = Instance.new("UICorner")
+TopCorner.CornerRadius = UDim.new(0, 12)
+TopCorner.Parent = TopPanel
+
+-- ЗАГОЛОВОК
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0.7, 0, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "🔥 MM2 MOBILE 🔥"
+Title.TextColor3 = Color3.fromRGB(0, 255, 255)
+Title.TextScaled = true
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopPanel
+
+-- КНОПКА ЗАКРЫТИЯ
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 40, 0, 40)
+CloseBtn.Position = UDim2.new(1, -45, 0, 5)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextScaled = true
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Parent = TopPanel
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 8)
+CloseCorner.Parent = CloseBtn
+
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui.Enabled = false
+end)
+
+-- ===== КНОПКА ПЕРЕМЕЩЕНИЯ (RuzHub стиль) =====
+local MoveBtn = Instance.new("TextButton")
+MoveBtn.Size = UDim2.new(0, 40, 0, 40)
+MoveBtn.Position = UDim2.new(1, -90, 0, 5)
+MoveBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+MoveBtn.Text = "⬡"
+MoveBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MoveBtn.TextScaled = true
+MoveBtn.Font = Enum.Font.GothamBold
+MoveBtn.Parent = TopPanel
+
+local MoveCorner = Instance.new("UICorner")
+MoveCorner.CornerRadius = UDim.new(0, 8)
+MoveCorner.Parent = MoveBtn
+
+local isDragging = false
+local dragStartPos = Vector2.new()
+local dragStartMouse = Vector2.new()
+
+MoveBtn.MouseButton1Down:Connect(function()
+    isDragging = true
+    dragStartPos = UDim2.new(MainFrame.Position.X.Scale, MainFrame.Position.X.Offset,
+                            MainFrame.Position.Y.Scale, MainFrame.Position.Y.Offset)
+    dragStartMouse = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        isDragging = false
+    end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if isDragging then
+        local currentMouse = Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y)
+        local delta = currentMouse - dragStartMouse
+        MainFrame.Position = UDim2.new(dragStartPos.X.Scale, dragStartPos.X.Offset + delta.X,
+                                      dragStartPos.Y.Scale, dragStartPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- ===== ВКЛАДКИ (RuzHub стиль) =====
+local Tabs = {}
+local TabButtons = {}
+local TabContents = {}
+
+local function CreateTab(name, color)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 110, 0, 40)
+    btn.Position = UDim2.new(0.5, -165 + (#TabButtons * 115), 0, 55)
+    btn.BackgroundColor3 = color
+    btn.BackgroundTransparency = 0.3
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = MainFrame
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 6)
+    btnCorner.Parent = btn
+    
+    local content = Instance.new("ScrollingFrame")
+    content.Size = UDim2.new(1, -20, 1, -140)
+    content.Position = UDim2.new(0, 10, 0, 100)
+    content.BackgroundTransparency = 1
+    content.Visible = false
+    content.CanvasSize = UDim2.new(0, 0, 0, 600)
+    content.ScrollBarThickness = 4
+    content.Parent = MainFrame
+    
+    TabButtons[name] = btn
+    TabContents[name] = content
+    table.insert(Tabs, name)
+    
+    btn.MouseButton1Click:Connect(function()
+        for _, tab in ipairs(Tabs) do
+            TabContents[tab].Visible = false
+            TabButtons[tab].BackgroundTransparency = 0.3
+        end
+        content.Visible = true
+        btn.BackgroundTransparency = 0
+    end)
+    
+    return content
+end
+
+-- ПЕРЕМЕННЫЕ
+local aimbotEnabled = false
+local espEnabled = false
+local autoKillEnabled = false
+local autoGunEnabled = false
+local farmEnabled = false
+
+-- ===== ФУНКЦИЯ СОЗДАНИЯ КНОПОК ДЛЯ ТЕЛЕФОНА =====
+local function CreateMobileToggle(parent, text, yPos, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0.95, 0, 0, 55)
+    frame.Position = UDim2.new(0.025, 0, 0, yPos)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+    frame.BackgroundTransparency = 0.2
+    frame.Parent = parent
+    
+    local frameCorner = Instance.new("UICorner")
+    frameCorner.CornerRadius = UDim.new(0, 8)
+    frameCorner.Parent = frame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.6, 0, 1, 0)
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextScaled = true
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Font = Enum.Font.Gotham
+    label.Parent = frame
+    
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 70, 0, 40)
+    btn.Position = UDim2.new(0.7, 0, 0.5, -20)
+    btn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    btn.Text = "OFF"
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = frame
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 8)
+    btnCorner.Parent = btn
+    
+    local state = false
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        btn.BackgroundColor3 = state and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(200, 50, 50)
+        btn.Text = state and "ON" or "OFF"
+        callback(state)
+    end)
+    
+    return frame
+end
+
+local function CreateMobileButton(parent, text, yPos, color, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.95, 0, 0, 55)
+    btn.Position = UDim2.new(0.025, 0, 0, yPos)
+    btn.BackgroundColor3 = color
+    btn.BackgroundTransparency = 0.2
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextScaled = true
+    btn.Font = Enum.Font.GothamBold
+    btn.Parent = parent
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 8)
+    btnCorner.Parent = btn
+    
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+-- ===== ВКЛАДКА 1: AIMBOT =====
+local tab1 = CreateTab("🎯 Аим", Color3.fromRGB(200, 50, 50))
+
+CreateMobileToggle(tab1, "🎯 Аимбот (ПКМ)", 5, function(state)
+    aimbotEnabled = state
+end)
+
+CreateMobileToggle(tab1, "👁️ ESP (Игроки)", 65, function(state)
+    espEnabled = state
+    if state then
+        RunService.Stepped:Connect(function()
+            if not espEnabled then return end
+            for _, v in ipairs(game.Players:GetPlayers()) do
+                if v ~= Player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                    local esp = Instance.new("BillboardGui")
+                    esp.Name = "ESP_"..v.Name
+                    esp.Size = UDim2.new(0, 250, 0, 60)
+                    esp.AlwaysOnTop = true
+                    esp.Parent = v.Character.HumanoidRootPart
+                    
+                    local label = Instance.new("TextLabel")
+                    label.Size = UDim2.new(1, 0, 1, 0)
+                    label.Text = v.Name
+                    label.TextScaled = true
+                    label.BackgroundTransparency = 0.4
+                    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+                    label.Parent = esp
+                    
+                    if v.Team then
+                        if v.Team.Name == "Murderer" then
+                            label.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+                        elseif v.Team.Name == "Sheriff" then
+                            label.BackgroundColor3 = Color3.fromRGB(0, 0, 255)
+                        elseif v.Team.Name == "Hero" then
+                            label.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+                        else
+                            label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+                        end
+                    end
+                end
+            end
+        end)
+    else
+        for _, v in ipairs(game.Players:GetPlayers()) do
+            if v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                for _, esp in ipairs(v.Character.HumanoidRootPart:GetChildren()) do
+                    if string.find(esp.Name, "ESP_") then esp:Destroy() end
+                end
+            end
+        end
+    end
+end)
+
+CreateMobileToggle(tab1, "🔪 Авто-убийство всех", 125, function(state)
+    autoKillEnabled = state
+    if state then
+        spawn(function()
+            while autoKillEnabled do
+                wait(0.3)
+                for _, v in ipairs(game.Players:GetPlayers()) do
+                    if v ~= Player and v.Team and v.Team.Name == "Murderer" and v.Character then
+                        game:GetService("ReplicatedStorage"):WaitForChild("Kill"):FireServer(v.Character.HumanoidRootPart.Position)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+CreateMobileToggle(tab1, "🔫 Авто-подбор пистолета", 185, function(state)
+    autoGunEnabled = state
+    if state then
+        spawn(function()
+            while autoGunEnabled do
+                wait(0.5)
+                for _, v in ipairs(workspace:GetChildren()) do
+                    if v:IsA("Tool") and v.Name == "Gun" then
+                        game:GetService("ReplicatedStorage"):WaitForChild("Pickup"):FireServer(v)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- ===== ВКЛАДКА 2: ТРОЛЛИНГ =====
+local tab2 = CreateTab("🤡 Тролль", Color3.fromRGB(200, 150, 0))
+
+CreateMobileButton(tab2, "📦 Телепорт всех ко мне", 5, Color3.fromRGB(200, 50, 50), function()
+    for _, v in ipairs(game.Players:GetPlayers()) do
+        if v ~= Player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            v.Character.HumanoidRootPart.CFrame = Player.Character.HumanoidRootPart.CFrame
+        end
+    end
+end)
+
+CreateMobileButton(tab2, "💥 Взрыв всех", 65, Color3.fromRGB(200, 100, 0), function()
+    for _, v in ipairs(game.Players:GetPlayers()) do
+        if v ~= Player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            local exp = Instance.new("Explosion")
+            exp.Position = v.Character.HumanoidRootPart.Position
+            exp.BlastRadius = 15
+            exp.Parent = workspace
+        end
+    end
+end)
+
+CreateMobileButton(tab2, "💀 Убить всех (админ)", 125, Color3.fromRGB(150, 0, 150), function()
+    for _, v in ipairs(game.Players:GetPlayers()) do
+        if v ~= Player and v.Character and v.Character:FindFirstChild("Humanoid") then
+            v.Character.Humanoid.Health = 0
+        end
+    end
+end)
+
+CreateMobileButton(tab2, "🌀 Отправить в небо", 185, Color3.fromRGB(0, 100, 200), function()
+    for _, v in ipairs(game.Players:GetPlayers()) do
+        if v ~= Player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            v.Character.HumanoidRootPart.Velocity = Vector3.new(0, 500, 0)
+        end
+    end
+end)
+
+CreateMobileButton(tab2, "📢 Спам в чат", 245, Color3.fromRGB(0, 200, 0), function()
+    local msgs = {"🔥 MM2 MOBILE", "💀 ВСЕХ УБЬЮ", "🤡 ТРОЛЛИНГ", "🎯 АИМБОТ ТОП", "😎 ЧИТЫ"}
+    spawn(function()
+        for i = 1, 15 do
+            game:GetService("ReplicatedStorage"):WaitForChild("Chat"):FireServer(msgs[i % 5 + 1])
+            wait(0.2)
+        end
+    end)
+end)
+
+-- ===== ВКЛАДКА 3: ФАРМ =====
+local tab3 = CreateTab("💰 Фарм", Color3.fromRGB(0, 150, 255))
+
+local farmBtn = Instance.new("TextButton")
+farmBtn.Size = UDim2.new(0.95, 0, 0, 60)
+farmBtn.Position = UDim2.new(0.025, 0, 0, 5)
+farmBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
+farmBtn.BackgroundTransparency = 0.2
+farmBtn.Text = "💰 ФАРМ МОНЕТ (Вкл)"
+farmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+farmBtn.TextScaled = true
+farmBtn.Font = Enum.Font.GothamBold
+farmBtn.Parent = tab3
+
+local farmCorner = Instance.new("UICorner")
+farmCorner.CornerRadius = UDim.new(0, 8)
+farmCorner.Parent = farmBtn
+
+farmBtn.MouseButton1Click:Connect(function()
+    farmEnabled = not farmEnabled
+    farmBtn.Text = farmEnabled and "💰 ФАРМ МОНЕТ (Выкл)" or "💰 ФАРМ МОНЕТ (Вкл)"
+    farmBtn.BackgroundColor3 = farmEnabled and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 100, 200)
+    
+    if farmEnabled then
+        spawn(function()
+            while farmEnabled do
+                wait(0.5)
+                local args = {[1] = 10}
+                game:GetService("ReplicatedStorage"):WaitForChild("AddCoins"):FireServer(unpack(args))
+            end
+        end)
+    end
+end)
+
+local coinDisplay = Instance.new("TextLabel")
+coinDisplay.Size = UDim2.new(0.95, 0, 0, 50)
+coinDisplay.Position = UDim2.new(0.025, 0, 0, 75)
+coinDisplay.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+coinDisplay.BackgroundTransparency = 0.2
+coinDisplay.Text = "🪙 Монет: 0"
+coinDisplay.TextColor3 = Color3.fromRGB(0, 0, 0)
+coinDisplay.TextScaled = true
+coinDisplay.Font = Enum.Font.GothamBold
+coinDisplay.Parent = tab3
+
+local coinCorner = Instance.new("UICorner")
+coinCorner.CornerRadius = UDim.new(0, 8)
+coinCorner.Parent = coinDisplay
+
+spawn(function()
+    while wait(1) do
+        local coins = Player:FindFirstChild("leaderstats") and Player.leaderstats:FindFirstChild("Coins")
+        if coins then
+            coinDisplay.Text = "🪙 Монет: " .. tostring(coins.Value)
+        end
+    end
+end)
+
+local stopBtn = Instance.new("TextButton")
+stopBtn.Size = UDim2.new(0.95, 0, 0, 50)
+stopBtn.Position = UDim2.new(0.025, 0, 0, 140)
+stopBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+stopBtn.BackgroundTransparency = 0.2
+stopBtn.Text = "⛔ ВЫКЛЮЧИТЬ ВСЁ"
+stopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+stopBtn.TextScaled = true
+stopBtn.Font = Enum.Font.GothamBold
+stopBtn.Parent = tab3
+
+local stopCorner = Instance.new("UICorner")
+stopCorner.CornerRadius = UDim.new(0, 8)
+stopCorner.Parent = stopBtn
+
+stopBtn.MouseButton1Click:Connect(function()
+    aimbotEnabled = false
+    espEnabled = false
+    autoKillEnabled = false
+    autoGunEnabled = false
+    farmEnabled = false
+    farmBtn.Text = "💰 ФАРМ МОНЕТ (Вкл)"
+    farmBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
+    
+    for _, v in ipairs(game.Players:GetPlayers()) do
+        if v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            for _, esp in ipairs(v.Character.HumanoidRootPart:GetChildren()) do
+                if string.find(esp.Name, "ESP_") then esp:Destroy() end
+            end
+        end
+    end
+    print("✅ ВСЕ ВЫКЛЮЧЕНО")
+end)
+
+-- ===== ОТКРЫТИЕ МЕНЮ ПО КНОПКЕ =====
+OpenButton.MouseButton1Click:Connect(function()
+    ScreenGui.Enabled = not ScreenGui.Enabled
+    if ScreenGui.Enabled then
+        -- Анимация появления
+        MainFrame.BackgroundTransparency = 0.5
+        MainFrame.Size = UDim2.new(0, 350, 0, 450)
+        wait(0.1)
+        MainFrame.BackgroundTransparency = 0.1
+        MainFrame.Size = UDim2.new(0, 400, 0, 550)
+    end
+end)
+
+-- ОТКРЫТИЕ ПЕРВОЙ ВКЛАДКИ
+wait(0.5)
+if Tabs[1] then
+    TabButtons[Tabs[1]]:Fire()
+end
+
+-- ===== ИНСТРУКЦИЯ =====
+print("✅ MM2 MOBILE ULTIMATE v4.0 ЗАГРУЖЕН!")
+print("📌 Нажмите на синюю кнопку с иконкой чтобы открыть меню")
+print("🔄 Нажмите ⬡ чтобы перемещать меню")
+print("❌ Нажмите ✕ чтобы закрыть")
+
+-- ПОДСКАЗКА НА ЭКРАНЕ
+local Hint = Instance.new("TextLabel")
+Hint.Size = UDim2.new(0, 300, 0, 40)
+Hint.Position = UDim2.new(0.5, -150, 0.02, 0)
+Hint.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+Hint.BackgroundTransparency = 0.5
+Hint.Text = "👆 Нажми на синюю кнопку внизу!"
+Hint.TextColor3 = Color3.fromRGB(255, 255, 255)
+Hint.TextScaled = true
+Hint.Font = Enum.Font.GothamBold
+Hint.Parent = Player.PlayerGui
+
+wait(3)
+Hint:Destroy()
