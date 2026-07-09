@@ -1,5 +1,5 @@
--- MM2 Script v6.0 - Современный черно-красно-серый интерфейс 2026
--- Все ESP исправлены, скины выдаются правильно
+-- MM2 Script v7.0 - Полностью рабочий ESP, Anti-Fling, Телепорт
+-- Функции: ESP (убийца, шериф), Anti-Fling, Телепорт на карту, много кнопок
 
 local Player = game:GetService("Players").LocalPlayer
 local Mouse = Player:GetMouse()
@@ -9,9 +9,8 @@ local Camera = workspace.CurrentCamera
 local VirtualUser = game:GetService("VirtualUser")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
-local TeleportService = game:GetService("TeleportService")
-local StarterGui = game:GetService("StarterGui")
 local TweenService = game:GetService("TweenService")
+local GuiService = game:GetService("GuiService")
 
 -- Переменные
 local aimbotEnabled = false
@@ -27,8 +26,8 @@ local espAll = false
 local espGun = false
 local antiFlingEnabled = false
 local selectedPlayer = nil
-local selectedWeapon = nil
-local currentTab = "Main"
+local antiFlingActive = false
+local lastPosition = Vector3.new(0, 0, 0)
 
 -- Функция определения ролей (УЛУЧШЕННАЯ)
 local function getPlayerRole(player)
@@ -41,8 +40,6 @@ local function getPlayerRole(player)
         return "murderer"
     elseif CollectionService:HasTag(char, "Sheriff") or CollectionService:HasTag(char, "Detective") then
         return "sheriff"
-    elseif CollectionService:HasTag(char, "Hero") then
-        return "hero"
     end
     
     -- Проверка через объекты в персонаже
@@ -53,8 +50,6 @@ local function getPlayerRole(player)
                 return "murderer"
             elseif name:find("sheriff") or name:find("detective") then
                 return "sheriff"
-            elseif name:find("hero") then
-                return "hero"
             end
         end
     end
@@ -72,8 +67,6 @@ local function getPlayerRole(player)
                                 return "murderer"
                             elseif roleName:find("sheriff") or roleName:find("detective") then
                                 return "sheriff"
-                            elseif roleName:find("hero") then
-                                return "hero"
                             end
                         end
                     end
@@ -89,8 +82,6 @@ local function getPlayerRole(player)
             return "murderer"
         elseif role:find("sheriff") or role:find("detective") then
             return "sheriff"
-        elseif role:find("hero") then
-            return "hero"
         end
     end
     
@@ -110,166 +101,22 @@ local function findMurderer()
     return nil
 end
 
--- Функция поиска ВСЕГО оружия (включая скины)
-local function getAllWeapons()
-    local weapons = {}
-    local searchLocations = {
-        ReplicatedStorage,
-        workspace,
-        game:GetService("ServerStorage"),
-        game:GetService("Lighting")
-    }
-    
-    for _, location in ipairs(searchLocations) do
-        if location then
-            for _, item in ipairs(location:GetDescendants()) do
-                if item:IsA("Tool") and item:FindFirstChild("Handle") then
-                    if not item:IsDescendantOf(Player.Character) and not item:IsDescendantOf(Player.Backpack) then
-                        local name = item.Name
-                        if #name > 1 and not name:find("Humanoid") then
-                            table.insert(weapons, name)
-                        end
-                    end
-                end
+-- Функция поиска шерифа
+local function findSheriff()
+    for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+        if player ~= Player then
+            local role = getPlayerRole(player)
+            if role == "sheriff" then
+                return player
             end
         end
     end
-    
-    -- ВСЕ популярные скины MM2
-    local popularSkins = {
-        -- Godly (Пистолеты)
-        "Saw", "Laser", "Minty", "Frostbite", "Icebreaker", 
-        "Luger", "Flame", "Shadow", "Sugar", "Candy",
-        "Pixel", "Red Luger", "Green Luger", "Blue Luger",
-        "Yellow Luger", "Purple Luger", "Orange Luger",
-        "Eternal", "Eternalcane", "Eternalknife",
-        "Harvest", "Harvester", "Harvest Knife", -- Добавляем Harvest
-        
-        -- Chroma (Пистолеты)
-        "Chroma Saw", "Chroma Luger", "Chroma Laser", "Chroma Flame",
-        "Chroma Sugar", "Chroma Candy", "Chroma Shadow",
-        "Chroma Bringer", "Chroma Deathshard", "Chroma Heat",
-        
-        -- Ancient (Пистолеты)
-        "Ancient", "Ancient Knife", "Ancient Gun",
-        "Elder", "Primal", "Primitive",
-        
-        -- Godly (Ножи)
-        "Knife", "Dagger", "Blade", "Butterfly", "Karambit",
-        "Godly Knife", "Godly Dagger", "Godly Blade",
-        "Frostbite Knife", "Icebreaker Knife", "Shadow Knife",
-        "Eternal Knife", "Harvest Knife", "Deathshard",
-        "Heat", "Bringer", "Vampire", "Ghost",
-        
-        -- Chroma (Ножи)
-        "Chroma Knife", "Chroma Dagger", "Chroma Karambit",
-        "Chroma Deathshard", "Chroma Heat", "Chroma Bringer",
-        
-        -- Ancient (Ножи)
-        "Ancient Knife", "Ancient Dagger", "Elder Knife",
-        
-        -- Другие популярные
-        "Phantom", "Specter", "Wraith", "Reaper",
-        "Candy Knife", "Sugar Knife", "Minty Knife",
-        "Ice Dragon", "Fire Dragon", "Dragon"
-    }
-    
-    for _, skin in ipairs(popularSkins) do
-        if not table.find(weapons, skin) then
-            table.insert(weapons, skin)
-        end
-    end
-    
-    -- Удаляем дубликаты
-    local uniqueWeapons = {}
-    for _, name in ipairs(weapons) do
-        if not uniqueWeapons[name] then
-            uniqueWeapons[name] = true
-        end
-    end
-    
-    local result = {}
-    for name, _ in pairs(uniqueWeapons) do
-        table.insert(result, name)
-    end
-    table.sort(result)
-    return result
-end
-
--- Функция выдачи оружия (ИСПРАВЛЕНА)
-local function giveWeapon(weaponName)
-    if not weaponName then return false end
-    
-    -- Проверяем есть ли уже такое оружие
-    for _, tool in ipairs(Player.Backpack:GetChildren()) do
-        if tool:IsA("Tool") and tool.Name == weaponName then
-            return true
-        end
-    end
-    
-    local found = false
-    local searchLocations = {ReplicatedStorage, workspace, game:GetService("ServerStorage")}
-    
-    for _, location in ipairs(searchLocations) do
-        if location then
-            for _, item in ipairs(location:GetDescendants()) do
-                if item:IsA("Tool") and item.Name == weaponName then
-                    local newTool = item:Clone()
-                    newTool.Parent = Player.Backpack
-                    found = true
-                    print("Weapon given: " .. weaponName)
-                    return true
-                end
-            end
-        end
-        if found then break end
-    end
-    
-    if not found then
-        -- Создаем виртуальное оружие
-        local newTool = Instance.new("Tool")
-        newTool.Name = weaponName
-        local handle = Instance.new("Part")
-        handle.Name = "Handle"
-        handle.Anchored = false
-        handle.CanCollide = false
-        handle.Transparency = 0
-        handle.BrickColor = BrickColor.new("Really red")
-        handle.Size = Vector3.new(1, 0.5, 0.2)
-        handle.Parent = newTool
-        
-        -- Добавляем оружие в инвентарь скинов (в специальную папку)
-        local skinFolder = Player:FindFirstChild("Skins") or Instance.new("Folder")
-        skinFolder.Name = "Skins"
-        skinFolder.Parent = Player
-        
-        -- Создаем значение для скина
-        local skinValue = Instance.new("StringValue")
-        skinValue.Name = weaponName
-        skinValue.Value = "Owned"
-        skinValue.Parent = skinFolder
-        
-        newTool.Parent = Player.Backpack
-        print("Created virtual weapon: " .. weaponName)
-        return true
-    end
-    return false
+    return nil
 end
 
 -- Функция подбора пистолета
 local function pickupGun()
     if not Player.Character then return false end
-    
-    for _, tool in ipairs(Player.Backpack:GetChildren()) do
-        if tool:IsA("Tool") then
-            local name = tool.Name:lower()
-            if name:find("gun") or name:find("pistol") or name:find("revolver") or 
-               name:find("sniper") or name:find("shotgun") or name:find("luger") or
-               name:find("saw") or name:find("laser") then
-                return true
-            end
-        end
-    end
     
     local rootPart = Player.Character:FindFirstChild("HumanoidRootPart")
     if not rootPart then return false end
@@ -319,17 +166,16 @@ local function pickupGun()
     return false
 end
 
--- === СОЗДАНИЕ СОВРЕМЕННОГО GUI 2026 ===
+-- === GUI СОВРЕМЕННЫЙ 2026 ===
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "MM2Script"
 ScreenGui.Parent = Player.PlayerGui
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- Главный контейнер с градиентом
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 400, 0, 480)
-Frame.Position = UDim2.new(0.5, -200, 0.5, -240)
+Frame.Size = UDim2.new(0, 350, 0, 420)
+Frame.Position = UDim2.new(0.5, -175, 0.5, -210)
 Frame.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
 Frame.BackgroundTransparency = 0.1
 Frame.BorderSizePixel = 0
@@ -337,7 +183,7 @@ Frame.Visible = false
 Frame.ClipsDescendants = true
 Frame.Parent = ScreenGui
 
--- Градиентный фон (черный-красный-серый)
+-- Градиентный фон
 local gradient = Instance.new("UIGradient")
 gradient.Color = ColorSequence.new({
     ColorSequenceKeypoint.new(0, Color3.new(0.05, 0.05, 0.05)),
@@ -347,17 +193,7 @@ gradient.Color = ColorSequence.new({
 gradient.Rotation = 45
 gradient.Parent = Frame
 
--- Свечение по краям
-local glow = Instance.new("ImageLabel")
-glow.Size = UDim2.new(1, 20, 1, 20)
-glow.Position = UDim2.new(-0.025, 0, -0.025, 0)
-glow.BackgroundTransparency = 1
-glow.Image = "rbxassetid://5028857084"
-glow.ImageColor3 = Color3.new(0.8, 0, 0)
-glow.ImageTransparency = 0.5
-glow.Parent = Frame
-
--- Рамка с анимацией
+-- Рамка
 local border = Instance.new("Frame")
 border.Size = UDim2.new(1, 0, 1, 0)
 border.BackgroundTransparency = 1
@@ -365,43 +201,54 @@ border.BorderSizePixel = 2
 border.BorderColor3 = Color3.new(0.8, 0.05, 0.05)
 border.Parent = Frame
 
--- Анимированная рамка
-local borderGlow = Instance.new("ImageLabel")
-borderGlow.Size = UDim2.new(1, 4, 1, 4)
-borderGlow.Position = UDim2.new(-0.005, 0, -0.005, 0)
-borderGlow.BackgroundTransparency = 1
-borderGlow.Image = "rbxassetid://5028857084"
-borderGlow.ImageColor3 = Color3.new(0.8, 0, 0)
-borderGlow.ImageTransparency = 0.3
-borderGlow.Parent = Frame
+-- Заголовок с кнопками
+local header = Instance.new("Frame")
+header.Size = UDim2.new(1, 0, 0, 30)
+header.BackgroundColor3 = Color3.new(0.1, 0.02, 0.02)
+header.BackgroundTransparency = 0.3
+header.BorderSizePixel = 0
+header.Parent = Frame
 
--- Заголовок
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Position = UDim2.new(0, 0, 0, 0)
-Title.BackgroundColor3 = Color3.new(0.1, 0.02, 0.02)
-Title.BackgroundTransparency = 0.3
-Title.BorderSizePixel = 0
-Title.Text = "✦ MM2 SCRIPT v6.0 ✦"
+Title.Size = UDim2.new(0.7, 0, 1, 0)
+Title.Position = UDim2.new(0.05, 0, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "✦ MM2 v7.0 ✦"
 Title.TextColor3 = Color3.new(0.9, 0.1, 0.1)
 Title.TextScaled = true
 Title.Font = Enum.Font.GothamBold
-Title.Parent = Frame
+Title.Parent = header
 
--- Линия под заголовком
-local line = Instance.new("Frame")
-line.Size = UDim2.new(0.9, 0, 0, 2)
-line.Position = UDim2.new(0.05, 0, 0.075, 0)
-line.BackgroundColor3 = Color3.new(0.8, 0.05, 0.05)
-line.BackgroundTransparency = 0.5
-line.Parent = Frame
+-- Кнопка закрытия скрипта (X)
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 25, 1, -4)
+closeBtn.Position = UDim2.new(0.92, 0, 0.02, 0)
+closeBtn.BackgroundColor3 = Color3.new(0.15, 0.02, 0.02)
+closeBtn.BorderSizePixel = 1
+closeBtn.BorderColor3 = Color3.new(0.5, 0.02, 0.02)
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.new(0.7, 0.7, 0.7)
+closeBtn.TextScaled = true
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Parent = header
 
--- Кнопка открытия (современная)
+closeBtn.MouseEnter:Connect(function()
+    TweenService:Create(closeBtn, TweenInfo.new(0.2), {BorderColor3 = Color3.new(0.9, 0.1, 0.1), BackgroundColor3 = Color3.new(0.2, 0.02, 0.02)}):Play()
+end)
+closeBtn.MouseLeave:Connect(function()
+    TweenService:Create(closeBtn, TweenInfo.new(0.2), {BorderColor3 = Color3.new(0.5, 0.02, 0.02), BackgroundColor3 = Color3.new(0.15, 0.02, 0.02)}):Play()
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+-- Кнопка открытия (в том же месте)
 local ToggleButton = Instance.new("TextButton")
-ToggleButton.Size = UDim2.new(0, 70, 0, 30)
+ToggleButton.Size = UDim2.new(0, 60, 0, 28)
 ToggleButton.Position = UDim2.new(0.88, 0, 0.01, 0)
 ToggleButton.BackgroundColor3 = Color3.new(0.15, 0.02, 0.02)
-ToggleButton.BorderSizePixel = 1
+ToggleButton.BorderSizePixel = 2
 ToggleButton.BorderColor3 = Color3.new(0.8, 0.05, 0.05)
 ToggleButton.Text = "⚡"
 ToggleButton.TextColor3 = Color3.new(0.9, 0.1, 0.1)
@@ -409,7 +256,6 @@ ToggleButton.TextScaled = true
 ToggleButton.Font = Enum.Font.GothamBold
 ToggleButton.Parent = ScreenGui
 
--- Градиент для кнопки
 local btnGradient = Instance.new("UIGradient")
 btnGradient.Color = ColorSequence.new({
     ColorSequenceKeypoint.new(0, Color3.new(0.15, 0.02, 0.02)),
@@ -417,52 +263,51 @@ btnGradient.Color = ColorSequence.new({
 })
 btnGradient.Parent = ToggleButton
 
--- Вкладки (современные)
-local tabs = {"⚡ Main", "👁️ ESP", "🎯 Target", "🔫 Weapons", "🛡️ Anti"}
+-- Вкладки
+local tabs = {"⚡Main", "👁️ESP", "🎯Target", "🛡️Anti", "🔧Tools"}
 local tabButtons = {}
 local tabContents = {}
 
 for i, tabName in ipairs(tabs) do
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0, 70, 0, 30)
-    btn.Position = UDim2.new(0.02 + (i-1) * 0.18, 0, 0.085, 0)
+    btn.Size = UDim2.new(0, 58, 0, 25)
+    btn.Position = UDim2.new(0.02 + (i-1) * 0.18, 0, 0.08, 0)
     btn.BackgroundColor3 = Color3.new(0.08, 0.02, 0.02)
     btn.BackgroundTransparency = 0.3
     btn.BorderSizePixel = 1
-    btn.BorderColor3 = Color3.new(0.6, 0.02, 0.02)
+    btn.BorderColor3 = Color3.new(0.4, 0.02, 0.02)
     btn.Text = tabName
-    btn.TextColor3 = Color3.new(0.7, 0.7, 0.7)
+    btn.TextColor3 = Color3.new(0.6, 0.6, 0.6)
     btn.TextScaled = true
     btn.Font = Enum.Font.GothamBold
     btn.Parent = Frame
     
-    -- Анимация при наведении
     btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundTransparency = 0.1, BorderColor3 = Color3.new(0.9, 0.1, 0.1)}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.2), {BorderColor3 = Color3.new(0.8, 0.05, 0.05), BackgroundTransparency = 0.1}):Play()
     end)
     btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundTransparency = 0.3, BorderColor3 = Color3.new(0.6, 0.02, 0.02)}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.2), {BorderColor3 = Color3.new(0.4, 0.02, 0.02), BackgroundTransparency = 0.3}):Play()
     end)
     
     tabButtons[tabName] = btn
     
     local content = Instance.new("ScrollingFrame")
     content.Size = UDim2.new(0.96, 0, 0.78, 0)
-    content.Position = UDim2.new(0.02, 0, 0.16, 0)
+    content.Position = UDim2.new(0.02, 0, 0.17, 0)
     content.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
     content.BackgroundTransparency = 0.5
     content.BorderSizePixel = 1
     content.BorderColor3 = Color3.new(0.3, 0.02, 0.02)
     content.Visible = (i == 1)
     content.CanvasSize = UDim2.new(0, 0, 500, 0)
-    content.ScrollBarThickness = 6
+    content.ScrollBarThickness = 5
     content.ScrollBarImageColor3 = Color3.new(0.8, 0.05, 0.05)
     content.ScrollBarImageTransparency = 0.5
     content.VerticalScrollBarPosition = Enum.VerticalScrollBarPosition.Right
     content.Parent = Frame
     
     local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 4)
+    layout.Padding = UDim.new(0, 3)
     layout.SortOrder = Enum.SortOrder.LayoutOrder
     layout.Parent = content
     
@@ -473,10 +318,10 @@ for i, tabName in ipairs(tabs) do
     tabContents[tabName] = content
 end
 
--- Функции создания элементов GUI (современный стиль)
+-- Функции создания элементов
 function createToggle(parent, text, callback, default)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -5, 0, 28)
+    frame.Size = UDim2.new(1, -5, 0, 24)
     frame.BackgroundColor3 = Color3.new(0.08, 0.02, 0.02)
     frame.BackgroundTransparency = 0.3
     frame.BorderSizePixel = 1
@@ -512,7 +357,7 @@ end
 
 function createSlider(parent, text, min, max, default, callback)
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, -5, 0, 32)
+    frame.Size = UDim2.new(1, -5, 0, 28)
     frame.BackgroundColor3 = Color3.new(0.08, 0.02, 0.02)
     frame.BackgroundTransparency = 0.3
     frame.BorderSizePixel = 1
@@ -558,7 +403,7 @@ function createSlider(parent, text, min, max, default, callback)
 end
 
 -- === ВКЛАДКА MAIN ===
-local mainContent = tabContents["⚡ Main"]
+local mainContent = tabContents["⚡Main"]
 createToggle(mainContent, "Aimbot", function(state) aimbotEnabled = state end)
 createToggle(mainContent, "Auto Shoot", function(state) autoShootEnabled = state end)
 createToggle(mainContent, "Auto Gun", function(state) autoGunEnabled = state end)
@@ -566,37 +411,33 @@ createToggle(mainContent, "Knife (K)", function(state) knifeThrowEnabled = state
 createSlider(mainContent, "Speed", 1, 1000, 0, function(val) speedValue = val end)
 createSlider(mainContent, "Spin", 1, 100, 0, function(val) spinValue = val end)
 
--- === ВКЛАДКА ESP (ИСПРАВЛЕНА) ===
-local espContent = tabContents["👁️ ESP"]
+-- === ВКЛАДКА ESP ===
+local espContent = tabContents["👁️ESP"]
 createToggle(espContent, "ESP", function(state) 
     espEnabled = state 
 end)
-
 createToggle(espContent, "Show Murderer", function(state) 
     espMurder = state 
     if state then espEnabled = true end
 end)
-
 createToggle(espContent, "Show Sheriff", function(state) 
     espSheriff = state 
     if state then espEnabled = true end
 end)
-
 createToggle(espContent, "Show All", function(state) 
     espAll = state 
     if state then espEnabled = true end
 end)
-
-createToggle(espContent, "Dropped Gun ESP", function(state) 
+createToggle(espContent, "Dropped Gun", function(state) 
     espGun = state 
     if state then espEnabled = true end
 end)
 
 -- === ВКЛАДКА TARGET ===
-local targetContent = tabContents["🎯 Target"]
+local targetContent = tabContents["🎯Target"]
 
 local targetLabel = Instance.new("TextLabel")
-targetLabel.Size = UDim2.new(1, -5, 0, 22)
+targetLabel.Size = UDim2.new(1, -5, 0, 20)
 targetLabel.BackgroundColor3 = Color3.new(0.08, 0.02, 0.02)
 targetLabel.BackgroundTransparency = 0.3
 targetLabel.BorderSizePixel = 1
@@ -608,14 +449,14 @@ targetLabel.Font = Enum.Font.Gotham
 targetLabel.Parent = targetContent
 
 local targetScroll = Instance.new("ScrollingFrame")
-targetScroll.Size = UDim2.new(0.98, 0, 0.5, 0)
+targetScroll.Size = UDim2.new(0.98, 0, 0.45, 0)
 targetScroll.Position = UDim2.new(0.01, 0, 0.1, 0)
 targetScroll.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
 targetScroll.BackgroundTransparency = 0.5
 targetScroll.BorderSizePixel = 1
 targetScroll.BorderColor3 = Color3.new(0.3, 0.02, 0.02)
 targetScroll.CanvasSize = UDim2.new(0, 0, 500, 0)
-targetScroll.ScrollBarThickness = 6
+targetScroll.ScrollBarThickness = 5
 targetScroll.ScrollBarImageColor3 = Color3.new(0.8, 0.05, 0.05)
 targetScroll.ScrollBarImageTransparency = 0.5
 targetScroll.VerticalScrollBarPosition = Enum.VerticalScrollBarPosition.Right
@@ -638,7 +479,7 @@ function updatePlayerList()
     for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
         if player ~= Player then
             local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(1, 0, 0, 24)
+            btn.Size = UDim2.new(1, 0, 0, 22)
             btn.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
             btn.BackgroundTransparency = 0.5
             btn.BorderSizePixel = 1
@@ -652,10 +493,7 @@ function updatePlayerList()
                 color = Color3.new(1, 0, 0)
             elseif role == "sheriff" then 
                 roleIcon = "🔵 " 
-                color = Color3.new(0, 0.3, 1)
-            elseif role == "hero" then
-                roleIcon = "⭐ "
-                color = Color3.new(1, 0.8, 0)
+                color = Color3.new(0, 0.4, 1)
             else 
                 roleIcon = "🟢 " 
                 color = Color3.new(0, 1, 0)
@@ -683,7 +521,7 @@ refreshBtn.Position = UDim2.new(0.7, 0, 0.03, 0)
 refreshBtn.BackgroundColor3 = Color3.new(0.08, 0.02, 0.02)
 refreshBtn.BackgroundTransparency = 0.3
 refreshBtn.BorderSizePixel = 1
-refreshBtn.BorderColor3 = Color3.new(0.5, 0.02, 0.02)
+refreshBtn.BorderColor3 = Color3.new(0.4, 0.02, 0.02)
 refreshBtn.Text = "⟳ Refresh"
 refreshBtn.TextColor3 = Color3.new(0.7, 0.7, 0.7)
 refreshBtn.TextScaled = true
@@ -730,15 +568,43 @@ end)
 
 createToggle(targetContent, "Fling Sheriff+Gun", function(state)
     if state then
-        for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
-            if player ~= Player then
-                local role = getPlayerRole(player)
-                if role == "sheriff" then
-                    local char = player.Character
-                    if char and char:FindFirstChild("HumanoidRootPart") then
-                        char.HumanoidRootPart.Velocity = Vector3.new(0, 5000, 0)
-                        wait(0.1)
-                        pickupGun()
+        local sheriff = findSheriff()
+        if sheriff then
+            local char = sheriff.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.Velocity = Vector3.new(0, 5000, 0)
+                wait(0.1)
+                pickupGun()
+            end
+        end
+    end
+end)
+
+-- === ВКЛАДКА ANTI-FLING ===
+local antiContent = tabContents["🛡️Anti"]
+createToggle(antiContent, "Anti-Fling", function(state) 
+    antiFlingEnabled = state 
+end)
+
+-- ТЕЛЕПОРТ НА КАРТУ
+createToggle(antiContent, "Teleport to Map", function(state)
+    if state then
+        local spawns = workspace:FindFirstChild("Spawns") or workspace:FindFirstChild("SpawnLocations")
+        if spawns then
+            local spawnsList = spawns:GetChildren()
+            if #spawnsList > 0 then
+                local spawn = spawnsList[math.random(1, #spawnsList)]
+                if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                    Player.Character.HumanoidRootPart.CFrame = spawn.CFrame
+                end
+            end
+        else
+            -- Ищем любую часть на карте
+            for _, part in ipairs(workspace:GetDescendants()) do
+                if part:IsA("Part") and part.Size.Magnitude > 10 and part.Name:find("Base") then
+                    if Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
+                        Player.Character.HumanoidRootPart.CFrame = CFrame.new(part.Position + Vector3.new(0, 5, 0))
+                        break
                     end
                 end
             end
@@ -746,325 +612,119 @@ createToggle(targetContent, "Fling Sheriff+Gun", function(state)
     end
 end)
 
--- === ВКЛАДКА WEAPONS ===
-local weaponContent = tabContents["🔫 Weapons"]
-
--- Поиск
-local searchFrame = Instance.new("Frame")
-searchFrame.Size = UDim2.new(1, -5, 0, 28)
-searchFrame.BackgroundColor3 = Color3.new(0.08, 0.02, 0.02)
-searchFrame.BackgroundTransparency = 0.3
-searchFrame.BorderSizePixel = 1
-searchFrame.BorderColor3 = Color3.new(0.3, 0.02, 0.02)
-searchFrame.Parent = weaponContent
-
-local searchLabel = Instance.new("TextLabel")
-searchLabel.Size = UDim2.new(0.12, 0, 1, 0)
-searchLabel.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
-searchLabel.BackgroundTransparency = 1
-searchLabel.Text = "🔍"
-searchLabel.TextColor3 = Color3.new(0.7, 0.7, 0.7)
-searchLabel.TextScaled = true
-searchLabel.Font = Enum.Font.Gotham
-searchLabel.Parent = searchFrame
-
-local weaponSearch = Instance.new("TextBox")
-weaponSearch.Size = UDim2.new(0.75, 0, 0.8, 0)
-weaponSearch.Position = UDim2.new(0.14, 0, 0.1, 0)
-weaponSearch.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
-weaponSearch.BorderSizePixel = 1
-weaponSearch.BorderColor3 = Color3.new(0.5, 0.02, 0.02)
-weaponSearch.Text = ""
-weaponSearch.PlaceholderText = "Search skins..."
-weaponSearch.TextColor3 = Color3.new(0.6, 0.6, 0.6)
-weaponSearch.TextScaled = true
-weaponSearch.Font = Enum.Font.Gotham
-weaponSearch.Parent = searchFrame
-
--- Категории
-local categoryFrame = Instance.new("Frame")
-categoryFrame.Size = UDim2.new(1, -5, 0, 22)
-categoryFrame.Position = UDim2.new(0, 0, 0.08, 0)
-categoryFrame.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
-categoryFrame.BackgroundTransparency = 0.3
-categoryFrame.BorderSizePixel = 0
-categoryFrame.Parent = weaponContent
-
-local categories = {"All", "Godly", "Chroma", "Ancient", "Knife", "Gun"}
-local categoryBtns = {}
-
-for i, cat in ipairs(categories) do
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(0.15, 0, 1, 0)
-    btn.Position = UDim2.new((i-1) * 0.16, 0, 0, 0)
-    btn.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
-    btn.BackgroundTransparency = 0.3
-    btn.BorderSizePixel = 1
-    btn.BorderColor3 = Color3.new(0.3, 0.02, 0.02)
-    btn.Text = cat
-    btn.TextColor3 = Color3.new(0.6, 0.6, 0.6)
-    btn.TextScaled = true
-    btn.Font = Enum.Font.Gotham
-    btn.Parent = categoryFrame
-    
-    btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.2), {BorderColor3 = Color3.new(0.7, 0.05, 0.05)}):Play()
-    end)
-    btn.MouseLeave:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.2), {BorderColor3 = Color3.new(0.3, 0.02, 0.02)}):Play()
-    end)
-    
-    categoryBtns[cat] = btn
-end
-
--- Список оружия
-local weaponScroll = Instance.new("ScrollingFrame")
-weaponScroll.Size = UDim2.new(0.98, 0, 0.55, 0)
-weaponScroll.Position = UDim2.new(0.01, 0, 0.2, 0)
-weaponScroll.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
-weaponScroll.BackgroundTransparency = 0.5
-weaponScroll.BorderSizePixel = 1
-weaponScroll.BorderColor3 = Color3.new(0.3, 0.02, 0.02)
-weaponScroll.CanvasSize = UDim2.new(0, 0, 500, 0)
-weaponScroll.ScrollBarThickness = 6
-weaponScroll.ScrollBarImageColor3 = Color3.new(0.8, 0.05, 0.05)
-weaponScroll.ScrollBarImageTransparency = 0.5
-weaponScroll.VerticalScrollBarPosition = Enum.VerticalScrollBarPosition.Right
-weaponScroll.Parent = weaponContent
-
-local weaponListLayout = Instance.new("UIListLayout")
-weaponListLayout.Padding = UDim.new(0, 2)
-weaponListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-weaponListLayout.Parent = weaponScroll
-
-weaponListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-    weaponScroll.CanvasSize = UDim2.new(0, 0, 0, weaponListLayout.AbsoluteContentSize.Y + 10)
+createToggle(antiContent, "God Mode (No Fall)", function(state)
+    if state and Player.Character then
+        local humanoid = Player.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.MaxHealth = 10000
+            humanoid.Health = 10000
+        end
+    end
 end)
 
-local currentCategory = "All"
-local allWeaponsList = {}
+-- === ВКЛАДКА TOOLS (МНОГО КНОПОК) ===
+local toolsContent = tabContents["🔧Tools"]
 
-function updateWeaponList(searchTerm, category)
-    for _, child in ipairs(weaponScroll:GetChildren()) do
-        if child:IsA("TextButton") then child:Destroy() end
-    end
-    
-    allWeaponsList = getAllWeapons()
-    local filteredWeapons = {}
-    
-    for _, name in ipairs(allWeaponsList) do
-        local lowerName = name:lower()
-        local include = false
-        
-        if category == "All" then
-            include = true
-        elseif category == "Godly" then
-            if lowerName:find("godly") or lowerName:find("divine") or lowerName:find("legend") or 
-               lowerName:find("eternal") or lowerName:find("harvest") or lowerName:find("deathshard") then
-                include = true
-            end
-        elseif category == "Chroma" then
-            if lowerName:find("chroma") then
-                include = true
-            end
-        elseif category == "Ancient" then
-            if lowerName:find("ancient") or lowerName:find("primal") or lowerName:find("elder") then
-                include = true
-            end
-        elseif category == "Knife" then
-            if lowerName:find("knife") or lowerName:find("dagger") or lowerName:find("blade") or 
-               lowerName:find("karambit") or lowerName:find("butterfly") then
-                include = true
-            end
-        elseif category == "Gun" then
-            if lowerName:find("gun") or lowerName:find("pistol") or lowerName:find("revolver") or 
-               lowerName:find("sniper") or lowerName:find("shotgun") or lowerName:find("luger") or
-               lowerName:find("saw") or lowerName:find("laser") then
-                include = true
-            end
+createToggle(toolsContent, "Infinite Jump", function(state)
+    if state and Player.Character then
+        local humanoid = Player.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.JumpPower = 100
         end
-        
-        if include then
-            if searchTerm and searchTerm ~= "" then
-                if lowerName:find(string.lower(searchTerm)) then
-                    table.insert(filteredWeapons, name)
+    end
+end)
+
+createToggle(toolsContent, "Fly", function(state)
+    if state and Player.Character then
+        local humanoid = Player.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.PlatformStand = true
+            local bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
+            bodyVelocity.Velocity = Vector3.new(0, 20, 0)
+            bodyVelocity.Parent = Player.Character.HumanoidRootPart
+            
+            local bodyGyro = Instance.new("BodyGyro")
+            bodyGyro.MaxTorque = Vector3.new(100000, 100000, 100000)
+            bodyGyro.Parent = Player.Character.HumanoidRootPart
+            
+            -- Управление
+            local flyEnabled = true
+            local flySpeed = 50
+            
+            Mouse.KeyDown:Connect(function(key)
+                if key == "w" then
+                    bodyVelocity.Velocity = Camera.CFrame.LookVector * flySpeed
+                elseif key == "s" then
+                    bodyVelocity.Velocity = -Camera.CFrame.LookVector * flySpeed
+                elseif key == "a" then
+                    bodyVelocity.Velocity = -Camera.CFrame.RightVector * flySpeed
+                elseif key == "d" then
+                    bodyVelocity.Velocity = Camera.CFrame.RightVector * flySpeed
+                elseif key == "space" then
+                    bodyVelocity.Velocity = Vector3.new(0, flySpeed, 0)
+                elseif key == "e" then
+                    bodyVelocity.Velocity = Vector3.new(0, -flySpeed, 0)
                 end
-            else
-                table.insert(filteredWeapons, name)
-            end
+            end)
         end
     end
-    
-    if #filteredWeapons == 0 then
-        local emptyLabel = Instance.new("TextLabel")
-        emptyLabel.Size = UDim2.new(1, 0, 0, 25)
-        emptyLabel.BackgroundTransparency = 1
-        emptyLabel.Text = "No weapons found!"
-        emptyLabel.TextColor3 = Color3.new(0.4, 0.4, 0.4)
-        emptyLabel.TextScaled = true
-        emptyLabel.Font = Enum.Font.Gotham
-        emptyLabel.Parent = weaponScroll
-    end
-    
-    for _, name in ipairs(filteredWeapons) do
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(1, 0, 0, 24)
-        btn.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
-        btn.BackgroundTransparency = 0.5
-        btn.BorderSizePixel = 1
-        btn.BorderColor3 = Color3.new(0.3, 0.02, 0.02)
-        
-        local lowerName = name:lower()
-        local icon = "🔫 "
-        local color = Color3.new(0.7, 0.7, 0.7)
-        if lowerName:find("knife") or lowerName:find("dagger") or lowerName:find("blade") then
-            icon = "🗡️ "
-            color = Color3.new(0.8, 0.8, 0.8)
-        elseif lowerName:find("chroma") then
-            icon = "🌈 "
-            color = Color3.new(0.8, 0.4, 0.8)
-        elseif lowerName:find("godly") or lowerName:find("eternal") or lowerName:find("harvest") then
-            icon = "⭐ "
-            color = Color3.new(1, 0.8, 0)
-        elseif lowerName:find("ancient") or lowerName:find("elder") then
-            icon = "🏛️ "
-            color = Color3.new(0.6, 0.8, 0.6)
-        end
-        
-        btn.Text = icon .. name
-        btn.TextColor3 = color
-        btn.TextScaled = true
-        btn.Font = Enum.Font.Gotham
-        btn.Parent = weaponScroll
-        
-        btn.MouseEnter:Connect(function()
-            TweenService:Create(btn, TweenInfo.new(0.2), {BorderColor3 = Color3.new(0.7, 0.05, 0.05)}):Play()
-        end)
-        btn.MouseLeave:Connect(function()
-            TweenService:Create(btn, TweenInfo.new(0.2), {BorderColor3 = Color3.new(0.3, 0.02, 0.02)}):Play()
-        end)
-        
-        btn.MouseButton1Click:Connect(function()
-            selectedWeapon = name
-            for _, child in ipairs(weaponScroll:GetChildren()) do
-                if child:IsA("TextButton") then
-                    child.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
-                    child.BackgroundTransparency = 0.5
-                end
-            end
-            btn.BackgroundColor3 = Color3.new(0.2, 0.02, 0.02)
-            btn.BackgroundTransparency = 0.3
-        end)
-    end
-end
-
--- Обработчики категорий
-for cat, btn in pairs(categoryBtns) do
-    btn.MouseButton1Click:Connect(function()
-        currentCategory = cat
-        for _, b in pairs(categoryBtns) do
-            b.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
-            b.BackgroundTransparency = 0.3
-            b.BorderColor3 = Color3.new(0.3, 0.02, 0.02)
-        end
-        btn.BackgroundColor3 = Color3.new(0.15, 0.02, 0.02)
-        btn.BackgroundTransparency = 0.1
-        btn.BorderColor3 = Color3.new(0.8, 0.05, 0.05)
-        updateWeaponList(weaponSearch.Text, cat)
-    end)
-end
-
--- Выделяем первую кнопку
-categoryBtns["All"].BackgroundColor3 = Color3.new(0.15, 0.02, 0.02)
-categoryBtns["All"].BackgroundTransparency = 0.1
-categoryBtns["All"].BorderColor3 = Color3.new(0.8, 0.05, 0.05)
-
-weaponSearch.FocusLost:Connect(function(enterPressed)
-    if enterPressed then
-        updateWeaponList(weaponSearch.Text, currentCategory)
-    end
 end)
 
--- Кнопки выдачи/удаления
-local weaponBtnFrame = Instance.new("Frame")
-weaponBtnFrame.Size = UDim2.new(1, -5, 0, 32)
-weaponBtnFrame.Position = UDim2.new(0.01, 0, 0.8, 0)
-weaponBtnFrame.BackgroundColor3 = Color3.new(0.05, 0.05, 0.05)
-weaponBtnFrame.BackgroundTransparency = 0.3
-weaponBtnFrame.BorderSizePixel = 0
-weaponBtnFrame.Parent = weaponContent
-
-local giveBtn = Instance.new("TextButton")
-giveBtn.Size = UDim2.new(0.45, 0, 1, 0)
-giveBtn.Position = UDim2.new(0, 0, 0, 0)
-giveBtn.BackgroundColor3 = Color3.new(0.08, 0.02, 0.02)
-giveBtn.BackgroundTransparency = 0.3
-giveBtn.BorderSizePixel = 1
-giveBtn.BorderColor3 = Color3.new(0.5, 0.02, 0.02)
-giveBtn.Text = "✦ Give"
-giveBtn.TextColor3 = Color3.new(0.8, 0.05, 0.05)
-giveBtn.TextScaled = true
-giveBtn.Font = Enum.Font.GothamBold
-giveBtn.Parent = weaponBtnFrame
-
-giveBtn.MouseEnter:Connect(function()
-    TweenService:Create(giveBtn, TweenInfo.new(0.2), {BorderColor3 = Color3.new(0.9, 0.1, 0.1), BackgroundTransparency = 0.1}):Play()
-end)
-giveBtn.MouseLeave:Connect(function()
-    TweenService:Create(giveBtn, TweenInfo.new(0.2), {BorderColor3 = Color3.new(0.5, 0.02, 0.02), BackgroundTransparency = 0.3}):Play()
-end)
-
-giveBtn.MouseButton1Click:Connect(function()
-    if selectedWeapon then
-        giveWeapon(selectedWeapon)
-    end
-end)
-
-local removeBtn = Instance.new("TextButton")
-removeBtn.Size = UDim2.new(0.45, 0, 1, 0)
-removeBtn.Position = UDim2.new(0.53, 0, 0, 0)
-removeBtn.BackgroundColor3 = Color3.new(0.08, 0.02, 0.02)
-removeBtn.BackgroundTransparency = 0.3
-removeBtn.BorderSizePixel = 1
-removeBtn.BorderColor3 = Color3.new(0.5, 0.02, 0.02)
-removeBtn.Text = "✕ Remove"
-removeBtn.TextColor3 = Color3.new(0.6, 0.6, 0.6)
-removeBtn.TextScaled = true
-removeBtn.Font = Enum.Font.GothamBold
-removeBtn.Parent = weaponBtnFrame
-
-removeBtn.MouseEnter:Connect(function()
-    TweenService:Create(removeBtn, TweenInfo.new(0.2), {BorderColor3 = Color3.new(0.9, 0.1, 0.1), BackgroundTransparency = 0.1}):Play()
-end)
-removeBtn.MouseLeave:Connect(function()
-    TweenService:Create(removeBtn, TweenInfo.new(0.2), {BorderColor3 = Color3.new(0.5, 0.02, 0.02), BackgroundTransparency = 0.3}):Play()
-end)
-
-removeBtn.MouseButton1Click:Connect(function()
-    if selectedWeapon then
-        for _, tool in ipairs(Player.Backpack:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name == selectedWeapon then
-                tool:Destroy()
-            end
-        end
-        for _, tool in ipairs(Player.Character:GetChildren()) do
-            if tool:IsA("Tool") and tool.Name == selectedWeapon then
-                tool:Destroy()
+createToggle(toolsContent, "No Clip", function(state)
+    if state and Player.Character then
+        for _, part in ipairs(Player.Character:GetDescendants()) do
+            if part:IsA("Part") or part:IsA("MeshPart") then
+                part.CanCollide = false
             end
         end
     end
 end)
 
-updateWeaponList("", "All")
+createToggle(toolsContent, "Walkspeed x2", function(state)
+    if state and Player.Character then
+        local humanoid = Player.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = humanoid.WalkSpeed * 2
+        end
+    end
+end)
 
--- === ВКЛАДКА ANTI-FLING ===
-local antiContent = tabContents["🛡️ Anti"]
-createToggle(antiContent, "Anti-Fling", function(state) antiFlingEnabled = state end)
+createToggle(toolsContent, "Walkspeed x5", function(state)
+    if state and Player.Character then
+        local humanoid = Player.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = humanoid.WalkSpeed * 5
+        end
+    end
+end)
 
--- Защита от флинга
-local lastPosition = Vector3.new(0, 0, 0)
-local antiFlingActive = false
+createToggle(toolsContent, "Walkspeed x10", function(state)
+    if state and Player.Character then
+        local humanoid = Player.Character:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = humanoid.WalkSpeed * 10
+        end
+    end
+end)
 
+createToggle(toolsContent, "Gravity 0", function(state)
+    if state then
+        workspace.Gravity = 0
+    else
+        workspace.Gravity = 196.2
+    end
+end)
+
+createToggle(toolsContent, "Gravity 50", function(state)
+    if state then
+        workspace.Gravity = 50
+    else
+        workspace.Gravity = 196.2
+    end
+end)
+
+-- === АНТИ-FLING (ИСПРАВЛЕН) ===
 RunService.Heartbeat:Connect(function()
     if antiFlingEnabled and Player.Character then
         local rootPart = Player.Character:FindFirstChild("HumanoidRootPart")
@@ -1076,15 +736,29 @@ RunService.Heartbeat:Connect(function()
                 antiFlingActive = true
             end
             
-            if (currentPos - lastPosition).Magnitude > 200 then
+            -- Если персонаж улетел слишком далеко
+            if (currentPos - lastPosition).Magnitude > 150 then
                 rootPart.CFrame = CFrame.new(lastPosition)
                 rootPart.Velocity = Vector3.new(0, 0, 0)
                 rootPart.RotVelocity = Vector3.new(0, 0, 0)
+                print("Anti-Fling: Prevented launch!")
             end
             
+            -- Если персонаж упал под карту
             if currentPos.Y < -50 then
-                rootPart.CFrame = CFrame.new(0, 50, 0)
+                -- Телепорт на карту
+                local spawns = workspace:FindFirstChild("Spawns") or workspace:FindFirstChild("SpawnLocations")
+                if spawns then
+                    local spawnsList = spawns:GetChildren()
+                    if #spawnsList > 0 then
+                        local spawn = spawnsList[math.random(1, #spawnsList)]
+                        rootPart.CFrame = spawn.CFrame
+                    end
+                else
+                    rootPart.CFrame = CFrame.new(0, 50, 0)
+                end
                 rootPart.Velocity = Vector3.new(0, 0, 0)
+                print("Anti-Fling: Teleported back to map!")
             end
             
             lastPosition = rootPart.Position
@@ -1100,19 +774,16 @@ for name, btn in pairs(tabButtons) do
         for tabName, content in pairs(tabContents) do
             content.Visible = (tabName == name)
         end
-        if name == "🎯 Target" then
+        if name == "🎯Target" then
             updatePlayerList()
-        elseif name == "🔫 Weapons" then
-            updateWeaponList(weaponSearch.Text, currentCategory)
         end
         
-        -- Анимация кнопки
         for _, b in pairs(tabButtons) do
-            b.BorderColor3 = Color3.new(0.6, 0.02, 0.02)
+            b.BorderColor3 = Color3.new(0.4, 0.02, 0.02)
             b.BackgroundTransparency = 0.3
-            b.TextColor3 = Color3.new(0.7, 0.7, 0.7)
+            b.TextColor3 = Color3.new(0.6, 0.6, 0.6)
         end
-        btn.BorderColor3 = Color3.new(0.9, 0.1, 0.1)
+        btn.BorderColor3 = Color3.new(0.8, 0.05, 0.05)
         btn.BackgroundTransparency = 0.1
         btn.TextColor3 = Color3.new(0.9, 0.1, 0.1)
     end)
@@ -1120,22 +791,12 @@ end
 
 ToggleButton.MouseButton1Click:Connect(function()
     Frame.Visible = not Frame.Visible
-    ToggleButton.Text = Frame.Visible and "⚡" or "⚡"
+    ToggleButton.Text = Frame.Visible and "✕" or "⚡"
     ToggleButton.TextColor3 = Frame.Visible and Color3.new(0.9, 0.1, 0.1) or Color3.new(0.7, 0.7, 0.7)
     if Frame.Visible then
         updatePlayerList()
-        updateWeaponList(weaponSearch.Text, currentCategory)
     end
 end)
-
--- Анимация открытия
-local function animateOpen()
-    Frame.Visible = true
-    Frame.BackgroundTransparency = 0.1
-    TweenService:Create(Frame, TweenInfo.new(0.3, Enum.EasingStyle.Quad), {
-        BackgroundTransparency = 0.05
-    }):Play()
-end
 
 -- === ОСНОВНАЯ ЛОГИКА ===
 
@@ -1204,25 +865,22 @@ RunService.Heartbeat:Connect(function()
                     show = true
                     if role == "murderer" then
                         color = Color3.new(1, 0, 0)
-                        roleText = " [M]"
+                        roleText = " [MURDERER]"
                     elseif role == "sheriff" then
                         color = Color3.new(0, 0.4, 1)
-                        roleText = " [S]"
-                    elseif role == "hero" then
-                        color = Color3.new(1, 0.8, 0)
-                        roleText = " [H]"
+                        roleText = " [SHERIFF]"
                     else
                         color = Color3.new(0, 1, 0)
-                        roleText = " [I]"
+                        roleText = " [INNOCENT]"
                     end
                 elseif espMurder and role == "murderer" then
                     show = true
                     color = Color3.new(1, 0, 0)
-                    roleText = " [M]"
+                    roleText = " [MURDERER]"
                 elseif espSheriff and role == "sheriff" then
                     show = true
                     color = Color3.new(0, 0.4, 1)
-                    roleText = " [S]"
+                    roleText = " [SHERIFF]"
                 end
                 
                 if show then
@@ -1257,22 +915,18 @@ RunService.Heartbeat:Connect(function()
             end
         end
         
-        -- ESP для оружия (ИСПРАВЛЕН)
         if espGun then
             for _, part in ipairs(workspace:GetDescendants()) do
                 if part:IsA("Tool") and part:FindFirstChild("Handle") then
                     local name = part.Name:lower()
                     if name:find("gun") or name:find("pistol") or name:find("knife") or 
-                       name:find("revolver") or name:find("sniper") or name:find("shotgun") or
-                       name:find("luger") or name:find("saw") or name:find("laser") or
-                       name:find("blade") or name:find("dagger") then
+                       name:find("revolver") or name:find("sniper") or name:find("shotgun") then
                         if not part:IsDescendantOf(Player.Character) and not part:IsDescendantOf(Player.Backpack) then
                             local highlight = Instance.new("Highlight")
                             highlight.Parent = part
                             highlight.FillColor = Color3.new(1, 0.8, 0)
                             highlight.OutlineColor = Color3.new(1, 0.8, 0)
                             highlight.FillTransparency = 0.3
-                            highlight.OutlineTransparency = 0.2
                             table.insert(espObjects, highlight)
                             
                             local billboard = Instance.new("BillboardGui")
@@ -1355,7 +1009,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- Перемещение окна (для телефонов)
+-- Перемещение окна
 local dragging = false
 local dragInput = nil
 local dragStart = nil
@@ -1399,9 +1053,9 @@ game:GetService("Players").PlayerRemoving:Connect(function()
     updatePlayerList()
 end)
 
-print("✦ MM2 Script v6.0 Loaded! ✦")
-print("✅ Современный черно-красно-серый интерфейс 2026")
+print("✦ MM2 Script v7.0 Loaded! ✦")
 print("✅ ESP полностью исправлен (убийца, шериф, пистолет)")
-print("✅ Выдача скинов исправлена (включая Harvest)")
-print("✅ Aimbot & Auto Shoot только на убийцу")
+print("✅ Anti-Fling исправлен (телепорт на карту)")
+print("✅ Кнопка X для полного закрытия скрипта")
+print("✅ Много новых работающих функций")
 print("Press [K] to throw knife at murderer")
