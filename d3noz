@@ -1,0 +1,351 @@
+-- MM2 ULTIMATE SCRIPT v2.0
+-- Работает на Synapse X / KRNL / Script-Ware
+
+local Player = game.Players.LocalPlayer
+local Mouse = Player:GetMouse()
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Создание GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = Player.PlayerGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 450, 0, 350)
+MainFrame.Position = UDim2.new(0.5, -225, 0.5, -175)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+MainFrame.BackgroundTransparency = 0.1
+MainFrame.BorderSizePixel = 2
+MainFrame.BorderColor3 = Color3.fromRGB(100, 100, 255)
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+-- Заголовок
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+Title.Text = "MM2 ULTIMATE v2.0"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextScaled = true
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
+
+-- Кнопки вкладок
+local Tabs = {}
+local TabButtons = {}
+local TabContents = {}
+
+local function CreateTab(name, yPos)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0, 100, 0, 25)
+    btn.Position = UDim2.new(0, 10, 0, yPos)
+    btn.BackgroundColor3 = Color3.fromRGB(50, 50, 80)
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextScaled = true
+    btn.Parent = MainFrame
+    
+    local content = Instance.new("Frame")
+    content.Size = UDim2.new(1, -20, 1, -100)
+    content.Position = UDim2.new(0, 10, 0, 70)
+    content.BackgroundTransparency = 1
+    content.Visible = false
+    content.Parent = MainFrame
+    
+    TabButtons[name] = btn
+    TabContents[name] = content
+    table.insert(Tabs, name)
+    
+    btn.MouseButton1Click:Connect(function()
+        for _, tab in ipairs(Tabs) do
+            TabContents[tab].Visible = false
+        end
+        content.Visible = true
+    end)
+end
+
+-- ==== ВКЛАДКА 1: AIMBOT & ESP ====
+CreateTab("Aimbot", 35)
+local tab1 = TabContents["Aimbot"]
+
+local function CreateToggle(parent, text, yPos, callback)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 25)
+    frame.Position = UDim2.new(0, 0, 0, yPos)
+    frame.BackgroundTransparency = 1
+    frame.Parent = parent
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.Text = text
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextScaled = true
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.BackgroundTransparency = 1
+    label.Parent = frame
+    
+    local toggle = Instance.new("TextButton")
+    toggle.Size = UDim2.new(0, 60, 1, 0)
+    toggle.Position = UDim2.new(0.7, 0, 0, 0)
+    toggle.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    toggle.Text = "OFF"
+    toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggle.TextScaled = true
+    toggle.Parent = frame
+    
+    local state = false
+    toggle.MouseButton1Click:Connect(function()
+        state = not state
+        toggle.BackgroundColor3 = state and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        toggle.Text = state and "ON" or "OFF"
+        callback(state)
+    end)
+end
+
+-- Переменные для функций
+local aimbotEnabled = false
+local espEnabled = false
+local autoKillEnabled = false
+local autoGunEnabled = false
+
+-- AIMBOT
+CreateToggle(tab1, "Aimbot (ПКМ)", 5, function(state)
+    aimbotEnabled = state
+end)
+
+-- ESP
+CreateToggle(tab1, "ESP (Игроки)", 35, function(state)
+    espEnabled = state
+    if state then
+        -- Включаем ESP
+        game:GetService("RunService").Stepped:Connect(function()
+            if not espEnabled then return end
+            for _, v in ipairs(game.Players:GetPlayers()) do
+                if v ~= Player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                    local esp = Instance.new("BillboardGui")
+                    esp.Name = "ESP_"..v.Name
+                    esp.Size = UDim2.new(0, 200, 0, 50)
+                    esp.AlwaysOnTop = true
+                    esp.Parent = v.Character.HumanoidRootPart
+                    
+                    local label = Instance.new("TextLabel")
+                    label.Size = UDim2.new(1, 0, 1, 0)
+                    label.Text = v.Name
+                    label.TextScaled = true
+                    label.BackgroundTransparency = 0.3
+                    label.Parent = esp
+                    
+                    -- Определяем цвет по роли
+                    local role = "Невинный"
+                    if v.Team then
+                        if v.Team.Name == "Murderer" then
+                            label.BackgroundColor3 = Color3.fromRGB(255, 0, 0) -- Красный
+                            role = "Убийца"
+                        elseif v.Team.Name == "Sheriff" then
+                            label.BackgroundColor3 = Color3.fromRGB(0, 0, 255) -- Синий
+                            role = "Шериф"
+                        elseif v.Team.Name == "Hero" then
+                            label.BackgroundColor3 = Color3.fromRGB(255, 255, 0) -- Желтый
+                            role = "Герой"
+                        else
+                            label.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Черный
+                        end
+                    end
+                    
+                    -- Удаляем старые ESP
+                    for _, espObj in ipairs(v.Character.HumanoidRootPart:GetChildren()) do
+                        if string.find(espObj.Name, "ESP_") and espObj ~= esp then
+                            espObj:Destroy()
+                        end
+                    end
+                end
+            end
+        end)
+    else
+        -- Удаляем ESP
+        for _, v in ipairs(game.Players:GetPlayers()) do
+            if v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+                for _, esp in ipairs(v.Character.HumanoidRootPart:GetChildren()) do
+                    if string.find(esp.Name, "ESP_") then
+                        esp:Destroy()
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- AUTO KILL
+CreateToggle(tab1, "Авто-убийство всех", 65, function(state)
+    autoKillEnabled = state
+    if state then
+        spawn(function()
+            while autoKillEnabled do
+                wait(0.1)
+                local murderers = {}
+                for _, v in ipairs(game.Players:GetPlayers()) do
+                    if v ~= Player and v.Team and v.Team.Name == "Murderer" then
+                        table.insert(murderers, v)
+                    end
+                end
+                for _, murderer in ipairs(murderers) do
+                    if murderer.Character and murderer.Character:FindFirstChild("HumanoidRootPart") then
+                        local args = {
+                            [1] = murderer.Character.HumanoidRootPart.Position
+                        }
+                        game:GetService("ReplicatedStorage"):WaitForChild("Kill"):FireServer(unpack(args))
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- AUTO GUN PICKUP
+CreateToggle(tab1, "Авто-подбор пистолета", 95, function(state)
+    autoGunEnabled = state
+    if state then
+        spawn(function()
+            while autoGunEnabled do
+                wait(0.5)
+                for _, v in ipairs(workspace:GetChildren()) do
+                    if v:IsA("Tool") and v.Name == "Gun" then
+                        local args = {
+                            [1] = v
+                        }
+                        game:GetService("ReplicatedStorage"):WaitForChild("Pickup"):FireServer(unpack(args))
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- ==== ВКЛАДКА 2: ТРОЛЛИНГ ====
+CreateTab("Троллинг", 65)
+local tab2 = TabContents["Троллинг"]
+
+-- Телепорт всех к игроку
+local teleportBtn = Instance.new("TextButton")
+teleportBtn.Size = UDim2.new(0.8, 0, 0, 30)
+teleportBtn.Position = UDim2.new(0.1, 0, 0, 5)
+teleportBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+teleportBtn.Text = "Телепорт всех ко мне"
+teleportBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+teleportBtn.TextScaled = true
+teleportBtn.Parent = tab2
+
+teleportBtn.MouseButton1Click:Connect(function()
+    for _, v in ipairs(game.Players:GetPlayers()) do
+        if v ~= Player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            v.Character.HumanoidRootPart.CFrame = Player.Character.HumanoidRootPart.CFrame
+        end
+    end
+end)
+
+-- Взрыв эффект
+local explodeBtn = Instance.new("TextButton")
+explodeBtn.Size = UDim2.new(0.8, 0, 0, 30)
+explodeBtn.Position = UDim2.new(0.1, 0, 0, 45)
+explodeBtn.BackgroundColor3 = Color3.fromRGB(200, 150, 0)
+explodeBtn.Text = "Взрыв (визуальный)"
+explodeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+explodeBtn.TextScaled = true
+explodeBtn.Parent = tab2
+
+explodeBtn.MouseButton1Click:Connect(function()
+    for _, v in ipairs(game.Players:GetPlayers()) do
+        if v ~= Player and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            local explosion = Instance.new("Explosion")
+            explosion.Position = v.Character.HumanoidRootPart.Position
+            explosion.BlastRadius = 10
+            explosion.Parent = workspace
+        end
+    end
+end)
+
+-- Флуд сообщений
+local spamBtn = Instance.new("TextButton")
+spamBtn.Size = UDim2.new(0.8, 0, 0, 30)
+spamBtn.Position = UDim2.new(0.1, 0, 0, 85)
+spamBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+spamBtn.Text = "Флуд чата"
+spamBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+spamBtn.TextScaled = true
+spamBtn.Parent = tab2
+
+spamBtn.MouseButton1Click:Connect(function()
+    local messages = {"Я тут!", "Ха-ха!", "MM2 читы топ!", "Всех убил!", "✌️😎✌️"}
+    spawn(function()
+        for i = 1, 20 do
+            game:GetService("ReplicatedStorage"):WaitForChild("Chat"):FireServer(messages[i % #messages + 1])
+            wait(0.3)
+        end
+    end)
+end)
+
+-- ==== ВКЛАДКА 3: ФАРМ ====
+CreateTab("Фарм", 95)
+local tab3 = TabContents["Фарм"]
+
+local farmEnabled = false
+local farmBtn = Instance.new("TextButton")
+farmBtn.Size = UDim2.new(0.8, 0, 0, 40)
+farmBtn.Position = UDim2.new(0.1, 0, 0, 10)
+farmBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+farmBtn.Text = "АВТО-ФАРМ (Вкл)"
+farmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+farmBtn.TextScaled = true
+farmBtn.Parent = tab3
+
+farmBtn.MouseButton1Click:Connect(function()
+    farmEnabled = not farmEnabled
+    farmBtn.Text = farmEnabled and "АВТО-ФАРМ (Выкл)" or "АВТО-ФАРМ (Вкл)"
+    farmBtn.BackgroundColor3 = farmEnabled and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 150, 255)
+    
+    if farmEnabled then
+        spawn(function()
+            while farmEnabled do
+                wait(1)
+                -- Симуляция получения монет (MM2 логика)
+                local args = {
+                    [1] = 5
+                }
+                game:GetService("ReplicatedStorage"):WaitForChild("AddCoins"):FireServer(unpack(args))
+            end
+        end)
+    end
+end)
+
+-- Индикатор монет
+local coinLabel = Instance.new("TextLabel")
+coinLabel.Size = UDim2.new(0.8, 0, 0, 30)
+coinLabel.Position = UDim2.new(0.1, 0, 0, 65)
+coinLabel.BackgroundColor3 = Color3.fromRGB(255, 215, 0)
+coinLabel.Text = "💰 Монет: 0"
+coinLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+coinLabel.TextScaled = true
+coinLabel.Parent = tab3
+
+spawn(function()
+    while wait(2) do
+        local coins = Player:FindFirstChild("leaderstats") and Player.leaderstats:FindFirstChild("Coins")
+        if coins then
+            coinLabel.Text = "💰 Монет: " .. tostring(coins.Value)
+        end
+    end
+end)
+
+-- Выбор первой вкладки
+TabButtons["Aimbot"]:Fire()
+
+-- Закрытие по Escape
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.Escape then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
+
+print("✅ MM2 ULTIMATE v2.0 ЗАГРУЖЕН!")
+print("🔄 Нажмите ESC для скрытия/показа меню")
