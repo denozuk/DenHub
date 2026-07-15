@@ -1,0 +1,161 @@
+-- LorHub v1.0 (Universal)
+local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Camera = workspace.CurrentCamera
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+-- Настройки по умолчанию
+local Settings = {
+    Aimbot = false,
+    SilentAim = false,
+    ESP = false,
+    Hitbox = false,
+    HitboxSize = 3,
+    AimPart = "Head",
+    FOV = 150,
+    VisibleCheck = false,
+    TeamCheck = false
+}
+
+-- Функция получения ближайшего врага
+local function GetClosestTarget()
+    local closest, dist = nil, math.huge
+    for _, v in pairs(Players:GetPlayers()) do
+        if v ~= LocalPlayer and v.Character and v.Character:FindFirstChild("HumanoidRootPart") then
+            if Settings.TeamCheck and v.Team == LocalPlayer.Team then continue end
+            local pos, onScreen = Camera:WorldToViewportPoint(v.Character.HumanoidRootPart.Position)
+            local d = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(pos.X, pos.Y)).Magnitude
+            if d < Settings.FOV and d < dist then
+                if Settings.VisibleCheck then
+                    local ray = Ray.new(Camera.CFrame.Position, (v.Character.HumanoidRootPart.Position - Camera.CFrame.Position).Unit * 1000)
+                    local hit = workspace:FindPartOnRay(ray, LocalPlayer.Character)
+                    if hit and hit:IsDescendantOf(v.Character) then
+                        closest, dist = v, d
+                    end
+                else
+                    closest, dist = v, d
+                end
+            end
+        end
+    end
+    return closest
+end
+
+-- Aimbot (плавное наведение)
+RunService.RenderStepped:Connect(function()
+    if Settings.Aimbot then
+        local target = GetClosestTarget()
+        if target and target.Character then
+            local aimPart = target.Character:FindFirstChild(Settings.AimPart) or target.Character.HumanoidRootPart
+            if aimPart then
+                local vector = (aimPart.Position - Camera.CFrame.Position).Unit
+                local newCF = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + vector * 100)
+                Camera.CFrame = Camera.CFrame:Lerp(newCF, 0.3)
+            end
+        end
+    end
+end)
+
+-- Silent Aim (через стенки, мгновенный выстрел)
+game:GetService("RunService").Heartbeat:Connect(function()
+    if Settings.SilentAim then
+        local target = GetClosestTarget()
+        if target and target.Character then
+            local aimPart = target.Character:FindFirstChild(Settings.AimPart) or target.Character.HumanoidRootPart
+            if aimPart and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                local tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                if tool and tool:FindFirstChild("Handle") then
+                    local handle = tool.Handle
+                    handle.CFrame = CFrame.new(handle.Position, aimPart.Position)
+                end
+            end
+        end
+    end
+end)
+
+-- ESP (Box, Line, Health)
+local ESPFolder = Instance.new("Folder", workspace)
+ESPFolder.Name = "LorESP"
+local function CreateESP(plr)
+    if plr == LocalPlayer then return end
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "ESP_"..plr.Name
+    highlight.Adornee = plr.Character or nil
+    highlight.FillColor = Color3.new(1,0,0)
+    highlight.OutlineColor = Color3.new(1,1,1)
+    highlight.Parent = ESPFolder
+    -- Line (через Drawing)
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.Color = Color3.new(1,0,0)
+    line.Thickness = 2
+    -- HealthBar (BillboardGui) - упрощённо
+    local bill = Instance.new("BillboardGui")
+    bill.Name = "HealthBar"
+    bill.Size = UDim2.new(0,50,0,5)
+    bill.Adornee = plr.Character and plr.Character:FindFirstChild("Head") or nil
+    local frame = Instance.new("Frame", bill)
+    frame.Size = UDim2.new(1,0,1,0)
+    frame.BackgroundColor3 = Color3.new(0,1,0)
+    local health = plr.Character and plr.Character:FindFirstChild("Humanoid") and plr.Character.Humanoid.Health or 100
+    frame.Size = UDim2.new(health/100,0,1,0)
+    bill.Parent = ESPFolder
+end
+
+Players.PlayerAdded:Connect(CreateESP)
+for _, v in pairs(Players:GetPlayers()) do CreateESP(v) end
+
+-- Обновление ESP
+RunService.RenderStepped:Connect(function()
+    if Settings.ESP then
+        ESPFolder.Enabled = true
+        for _, v in pairs(ESPFolder:GetChildren()) do
+            if v:IsA("Highlight") then
+                local plr = Players:FindFirstChild(v.Name:gsub("ESP_",""))
+                if plr and plr.Character then
+                    v.Adornee = plr.Character
+                end
+            end
+        end
+    else
+        ESPFolder.Enabled = false
+    end
+end)
+
+-- Hitbox Extender (увеличение коллизий)
+RunService.Heartbeat:Connect(function()
+    if Settings.Hitbox then
+        for _, v in pairs(Players:GetPlayers()) do
+            if v ~= LocalPlayer and v.Character then
+                for _, part in pairs(v.Character:GetChildren()) do
+                    if part:IsA("BasePart") then
+                        part.Size = part.Size + Vector3.new(Settings.HitboxSize, Settings.HitboxSize, Settings.HitboxSize)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Интерфейс Orion (PulseHub стиль)
+local Window = OrionLib:MakeWindow({Name = "LorHub", HidePremium = false, SaveConfig = true, ConfigFolder = "LorHub"})
+
+local MainTab = Window:MakeTab({Name = "Aimbot", Icon = "rbxassetid://4483345998"})
+MainTab:AddToggle({Name = "Aimbot", Default = false, Callback = function(v) Settings.Aimbot = v end})
+MainTab:AddToggle({Name = "Silent Aim", Default = false, Callback = function(v) Settings.SilentAim = v end})
+MainTab:AddDropdown({Name = "Aim Part", Default = "Head", Options = {"Head","HumanoidRootPart","Torso"}, Callback = function(v) Settings.AimPart = v end})
+MainTab:AddSlider({Name = "FOV", Min = 30, Max = 300, Default = 150, Callback = function(v) Settings.FOV = v end})
+MainTab:AddToggle({Name = "Visible Check", Default = false, Callback = function(v) Settings.VisibleCheck = v end})
+MainTab:AddToggle({Name = "Team Check", Default = false, Callback = function(v) Settings.TeamCheck = v end})
+
+local ESPTab = Window:MakeTab({Name = "ESP", Icon = "rbxassetid://4483345998"})
+ESPTab:AddToggle({Name = "ESP (Box + Health)", Default = false, Callback = function(v) Settings.ESP = v end})
+
+local HitboxTab = Window:MakeTab({Name = "Hitbox", Icon = "rbxassetid://4483345998"})
+HitboxTab:AddToggle({Name = "Hitbox Extender", Default = false, Callback = function(v) Settings.Hitbox = v end})
+HitboxTab:AddSlider({Name = "Hitbox Size", Min = 1, Max = 10, Default = 3, Callback = function(v) Settings.HitboxSize = v end})
+
+OrionLib:Init()
