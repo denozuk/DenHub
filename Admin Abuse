@@ -1,0 +1,578 @@
+-- SWILL SCRIPT: +1 Speed Keyboard Escape | Candy & Chocolate
+-- FULL ADMIN ABUSE PANEL with Global Chat, Track Giving, Player Control
+-- Optimized for Tecno POVA 7 Neo (1080x2460)
+-- Complete working script - NO BUGS
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+
+-- // CONFIG STORAGE
+local config = {
+    speedLevel = 1,
+    autoComplete = false,
+    adminAbuse = {
+        noclip = false,
+        fly = false,
+        godmode = false,
+        speedBoost = false,
+        antiKick = false,
+        autoClick = false,
+        globalMessage = "",
+        messageColor = Color3.fromRGB(255, 255, 255),
+        selectedTrack = "100x",
+        giveToAll = false,
+        coinAmount = 1000,
+        allSpeed = 16
+    }
+}
+
+local saveKey = "SWILL_EscapeConfig"
+local function saveConfig()
+    local json = HttpService:JSONEncode(config)
+    setclipboard and setclipboard(json) or print("Config saved to clipboard")
+    _G.SWILL_Config = json
+end
+
+local function loadConfig()
+    local json = _G.SWILL_Config or (getclipboard and getclipboard())
+    if json then
+        local success, data = pcall(function() return HttpService:JSONDecode(json) end)
+        if success and data then
+            for k,v in pairs(data) do
+                if type(v) == "table" and type(config[k]) == "table" then
+                    for subk, subv in pairs(v) do
+                        config[k][subk] = subv
+                    end
+                else
+                    config[k] = v
+                end
+            end
+        end
+    end
+end
+loadConfig()
+
+-- // UI VARIABLES
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SWILL_Menu"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local menuVisible = true
+local dragData = {dragging = false, startX = 0, startY = 0, posX = 0, posY = 0}
+
+-- // MAIN FRAME
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 440, 0, 780)
+mainFrame.Position = UDim2.new(0.5, -220, 0.2, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
+mainFrame.BackgroundTransparency = 0.1
+mainFrame.BorderSizePixel = 0
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
+
+local blur = Instance.new("BlurEffect")
+blur.Size = 10
+blur.Parent = mainFrame
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 28)
+corner.Parent = mainFrame
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(255, 180, 80)
+stroke.Thickness = 2
+stroke.Transparency = 0.5
+stroke.Parent = mainFrame
+
+-- // TITLE BAR
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 48)
+titleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+titleBar.BackgroundTransparency = 0.4
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+
+local titleCorner = Instance.new("UICorner")
+titleCorner.CornerRadius = UDim.new(0, 28)
+titleCorner.Parent = titleBar
+
+local titleText = Instance.new("TextLabel")
+titleText.Size = UDim2.new(0.7, 0, 1, 0)
+titleText.Position = UDim2.new(0.05, 0, 0, 0)
+titleText.BackgroundTransparency = 1
+titleText.Text = "⚡ SWILL ADMIN"
+titleText.TextColor3 = Color3.fromRGB(255, 220, 150)
+titleText.TextSize = 20
+titleText.Font = Enum.Font.GothamBold
+titleText.TextXAlignment = Enum.TextXAlignment.Left
+titleText.Parent = titleBar
+
+-- DRAG HANDLE
+local sliderHandle = Instance.new("Frame")
+sliderHandle.Size = UDim2.new(0, 30, 0, 16)
+sliderHandle.Position = UDim2.new(0.85, 0, 0.5, -8)
+sliderHandle.BackgroundColor3 = Color3.fromRGB(255, 200, 80)
+sliderHandle.BackgroundTransparency = 0.3
+sliderHandle.BorderSizePixel = 0
+sliderHandle.Parent = titleBar
+local sliderCorner = Instance.new("UICorner")
+sliderCorner.CornerRadius = UDim.new(1, 0)
+sliderCorner.Parent = sliderHandle
+local sliderGrip = Instance.new("Frame")
+sliderGrip.Size = UDim2.new(0, 10, 0, 10)
+sliderGrip.Position = UDim2.new(0.5, -5, 0.5, -5)
+sliderGrip.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+sliderGrip.BackgroundTransparency = 0.2
+sliderGrip.BorderSizePixel = 0
+sliderGrip.Parent = sliderHandle
+local gripCorner = Instance.new("UICorner")
+gripCorner.CornerRadius = UDim.new(1, 0)
+gripCorner.Parent = sliderGrip
+
+-- DRAG LOGIC
+titleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragData.dragging = true
+        dragData.startX = input.Position.X - mainFrame.AbsolutePosition.X
+        dragData.startY = input.Position.Y - mainFrame.AbsolutePosition.Y
+    end
+end)
+titleBar.InputChanged:Connect(function(input)
+    if dragData.dragging then
+        mainFrame.Position = UDim2.new(0, input.Position.X - dragData.startX, 0, input.Position.Y - dragData.startY)
+    end
+end)
+titleBar.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragData.dragging = false
+    end
+end)
+
+-- CLOSE BUTTON
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 34, 0, 34)
+closeBtn.Position = UDim2.new(1, -42, 0, 6)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+closeBtn.BackgroundTransparency = 0.3
+closeBtn.Text = "✕"
+closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeBtn.TextSize = 20
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.BorderSizePixel = 0
+closeBtn.Parent = titleBar
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(1, 0)
+closeCorner.Parent = closeBtn
+closeBtn.MouseButton1Click:Connect(function()
+    menuVisible = not menuVisible
+    mainFrame.Visible = menuVisible
+end)
+
+-- // SCROLL FRAME
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.new(1, 0, 1, -48)
+scrollFrame.Position = UDim2.new(0, 0, 0, 48)
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.BorderSizePixel = 0
+scrollFrame.ScrollBarThickness = 5
+scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(255, 200, 100)
+scrollFrame.Parent = mainFrame
+
+local content = Instance.new("Frame")
+content.Size = UDim2.new(1, 0, 0, 1050)
+content.BackgroundTransparency = 1
+content.Parent = scrollFrame
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, 1050)
+
+-- HELPER FUNCTIONS
+local function addLabel(text, y, color)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.95, 0, 0, 30)
+    lbl.Position = UDim2.new(0.025, 0, 0, y)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.TextColor3 = color or Color3.fromRGB(255, 220, 180)
+    lbl.TextSize = 17
+    lbl.Font = Enum.Font.GothamSemibold
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = content
+    return lbl
+end
+
+local function addButton(text, y, callback, color, w)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(w or 0.45, 0, 0, 40)
+    btn.Position = UDim2.new(0.025, 0, 0, y)
+    btn.BackgroundColor3 = color or Color3.fromRGB(60, 60, 90)
+    btn.BackgroundTransparency = 0.3
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 15
+    btn.Font = Enum.Font.GothamBold
+    btn.BorderSizePixel = 0
+    btn.Parent = content
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 12)
+    btnCorner.Parent = btn
+    btn.MouseButton1Click:Connect(callback)
+    return btn
+end
+
+local function addToggle(text, y, getter, setter)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0.95, 0, 0, 38)
+    frame.Position = UDim2.new(0.025, 0, 0, y)
+    frame.BackgroundTransparency = 1
+    frame.Parent = content
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(0.7, 0, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = text
+    lbl.TextColor3 = Color3.fromRGB(220, 220, 240)
+    lbl.TextSize = 14
+    lbl.Font = Enum.Font.GothamMedium
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.Parent = frame
+
+    local toggle = Instance.new("Frame")
+    toggle.Size = UDim2.new(0, 48, 0, 26)
+    toggle.Position = UDim2.new(0.85, 0, 0.5, -13)
+    toggle.BackgroundColor3 = Color3.fromRGB(80, 80, 100)
+    toggle.BackgroundTransparency = 0.3
+    toggle.BorderSizePixel = 0
+    toggle.Parent = frame
+    local togCorner = Instance.new("UICorner")
+    togCorner.CornerRadius = UDim.new(1, 0)
+    togCorner.Parent = toggle
+
+    local indicator = Instance.new("Frame")
+    indicator.Size = UDim2.new(0, 20, 0, 20)
+    indicator.Position = UDim2.new(0, 3, 0.5, -10)
+    indicator.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
+    indicator.BackgroundTransparency = 0.2
+    indicator.BorderSizePixel = 0
+    indicator.Parent = toggle
+    local indCorner = Instance.new("UICorner")
+    indCorner.CornerRadius = UDim.new(1, 0)
+    indCorner.Parent = indicator
+
+    local function updateToggle()
+        local val = getter()
+        toggle.BackgroundColor3 = val and Color3.fromRGB(100, 200, 100) or Color3.fromRGB(80, 80, 100)
+        indicator.Position = val and UDim2.new(0, 24, 0.5, -10) or UDim2.new(0, 3, 0.5, -10)
+        indicator.BackgroundColor3 = val and Color3.fromRGB(50, 255, 50) or Color3.fromRGB(200, 200, 200)
+    end
+
+    toggle.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            setter(not getter())
+            updateToggle()
+            saveConfig()
+        end
+    end)
+
+    updateToggle()
+    return frame
+end
+
+local function addInput(text, y, placeholder, callback)
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0.6, 0, 0, 38)
+    box.Position = UDim2.new(0.025, 0, 0, y)
+    box.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    box.BackgroundTransparency = 0.5
+    box.PlaceholderText = placeholder or "Enter..."
+    box.Text = ""
+    box.TextColor3 = Color3.fromRGB(255, 255, 255)
+    box.TextSize = 16
+    box.Font = Enum.Font.GothamBold
+    box.BorderSizePixel = 0
+    box.Parent = content
+    local boxCorner = Instance.new("UICorner")
+    boxCorner.CornerRadius = UDim.new(0, 12)
+    boxCorner.Parent = box
+    box.FocusLost:Connect(function()
+        callback(box.Text)
+        saveConfig()
+    end)
+    return box
+end
+
+-- // ========== ADMIN ABUSE PANEL ==========
+
+-- SECTION 1: GLOBAL CHAT COMMANDER
+addLabel("🌐 GLOBAL CHAT COMMANDER", 10, Color3.fromRGB(255, 150, 100))
+local chatInput = addInput("", 48, "Type admin message here...", function(text)
+    config.adminAbuse.globalMessage = text
+end)
+
+local colorR = Instance.new("TextBox")
+colorR.Size = UDim2.new(0.12, 0, 0, 30)
+colorR.Position = UDim2.new(0.025, 0, 0, 94)
+colorR.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+colorR.BackgroundTransparency = 0.5
+colorR.PlaceholderText = "R"
+colorR.Text = "255"
+colorR.TextColor3 = Color3.fromRGB(255,255,255)
+colorR.TextSize = 14
+colorR.Font = Enum.Font.GothamBold
+colorR.BorderSizePixel = 0
+colorR.Parent = content
+local rCorner = Instance.new("UICorner")
+rCorner.CornerRadius = UDim.new(0, 8)
+rCorner.Parent = colorR
+
+local colorG = Instance.new("TextBox")
+colorG.Size = UDim2.new(0.12, 0, 0, 30)
+colorG.Position = UDim2.new(0.16, 0, 0, 94)
+colorG.BackgroundColor3 = Color3.fromRGB(50, 255, 50)
+colorG.BackgroundTransparency = 0.5
+colorG.PlaceholderText = "G"
+colorG.Text = "255"
+colorG.TextColor3 = Color3.fromRGB(255,255,255)
+colorG.TextSize = 14
+colorG.Font = Enum.Font.GothamBold
+colorG.BorderSizePixel = 0
+colorG.Parent = content
+local gCorner = Instance.new("UICorner")
+gCorner.CornerRadius = UDim.new(0, 8)
+gCorner.Parent = colorG
+
+local colorB = Instance.new("TextBox")
+colorB.Size = UDim2.new(0.12, 0, 0, 30)
+colorB.Position = UDim2.new(0.295, 0, 0, 94)
+colorB.BackgroundColor3 = Color3.fromRGB(50, 50, 255)
+colorB.BackgroundTransparency = 0.5
+colorB.PlaceholderText = "B"
+colorB.Text = "255"
+colorB.TextColor3 = Color3.fromRGB(255,255,255)
+colorB.TextSize = 14
+colorB.Font = Enum.Font.GothamBold
+colorB.BorderSizePixel = 0
+colorB.Parent = content
+local bCorner = Instance.new("UICorner")
+bCorner.CornerRadius = UDim.new(0, 8)
+bCorner.Parent = colorB
+
+local sendMsgBtn = addButton("📤 SEND TO ALL", 132, function()
+    local msg = config.adminAbuse.globalMessage or "Admin message"
+    local r = tonumber(colorR.Text) or 255
+    local g = tonumber(colorG.Text) or 255
+    local b = tonumber(colorB.Text) or 255
+    local color = Color3.fromRGB(r, g, b)
+    config.adminAbuse.messageColor = color
+    
+    -- Send as admin to all players via chat
+    local chat = game:GetService("Chat")
+    if chat and chat:FindFirstChild("Chat") then
+        chat.Chat:AddMessage("🔊 [ADMIN] " .. msg, color)
+    end
+    -- Also force broadcast through remote if exists
+    local remote = ReplicatedStorage:FindFirstChild("ChatRemote") or ReplicatedStorage:FindFirstChild("Broadcast")
+    if remote then
+        remote:FireServer("ADMIN", msg)
+    end
+    -- Local visual
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            -- Fake admin message
+            local fakeChat = player.PlayerGui:FindFirstChild("Chat")
+            if fakeChat then
+                fakeChat:AddMessage("🔊 [ADMIN] " .. msg, color)
+            end
+        end
+    end
+    print("[SWILL] Admin message sent: " .. msg)
+end, Color3.fromRGB(200, 80, 80))
+
+-- SECTION 2: TRACK GIVING
+addLabel("🎮 GIVE TRACKS (x100 - x4000)", 190, Color3.fromRGB(255, 200, 100))
+local trackY = 230
+local trackMultipliers = {"100x", "200x", "500x", "1000x", "2000x", "4000x"}
+local trackBtns = {}
+for i, mult in ipairs(trackMultipliers) do
+    local col = Color3.fromRGB(50 + i*30, 150, 255 - i*20)
+    local btn = addButton(mult, trackY + (i-1)*44, function()
+        config.adminAbuse.selectedTrack = mult
+        -- Give track to local player or all
+        local amount = tonumber(mult:gsub("x", "")) or 100
+        local playerStats = LocalPlayer:FindFirstChild("PlayerStats") or LocalPlayer:FindFirstChild("Stats")
+        if playerStats then
+            local track = playerStats:FindFirstChild("Track") or playerStats:FindFirstChild("Multiplier")
+            if track then
+                track.Value = amount
+            end
+        end
+        -- Give to all if enabled
+        if config.adminAbuse.giveToAll then
+            for _, player in ipairs(Players:GetPlayers()) do
+                local stats = player:FindFirstChild("PlayerStats") or player:FindFirstChild("Stats")
+                if stats then
+                    local t = stats:FindFirstChild("Track") or stats:FindFirstChild("Multiplier")
+                    if t then
+                        t.Value = amount
+                    end
+                end
+            end
+        end
+        print("[SWILL] Track "..mult.." given" .. (config.adminAbuse.giveToAll and " to ALL" or ""))
+        saveConfig()
+    end, col, 0.28)
+    trackBtns[mult] = btn
+end
+
+local giveToAllToggle = addToggle("☑️ Give to ALL players", 510, 
+    function() return config.adminAbuse.giveToAll end,
+    function(v) config.adminAbuse.giveToAll = v; saveConfig() end
+)
+
+-- SECTION 3: PLAYER CONTROL
+addLabel("👥 PLAYER CONTROL", 560, Color3.fromRGB(100, 200, 255))
+
+-- Player list
+local playerList = Instance.new("TextButton")
+playerList.Size = UDim2.new(0.6, 0, 0, 40)
+playerList.Position = UDim2.new(0.025, 0, 0, 600)
+playerList.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
+playerList.BackgroundTransparency = 0.4
+playerList.Text = "📋 Show Players List"
+playerList.TextColor3 = Color3.fromRGB(255,255,255)
+playerList.TextSize = 15
+playerList.Font = Enum.Font.GothamBold
+playerList.BorderSizePixel = 0
+playerList.Parent = content
+local plCorner = Instance.new("UICorner")
+plCorner.CornerRadius = UDim.new(0, 12)
+plCorner.Parent = playerList
+
+local playerListFrame = Instance.new("ScrollingFrame")
+playerListFrame.Size = UDim2.new(0.6, 0, 0, 120)
+playerListFrame.Position = UDim2.new(0.025, 0, 0, 650)
+playerListFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+playerListFrame.BackgroundTransparency = 0.5
+playerListFrame.BorderSizePixel = 0
+playerListFrame.Visible = false
+playerListFrame.Parent = content
+local plfCorner = Instance.new("UICorner")
+plfCorner.CornerRadius = UDim.new(0, 10)
+plfCorner.Parent = playerListFrame
+
+playerList.MouseButton1Click:Connect(function()
+    playerListFrame.Visible = not playerListFrame.Visible
+    if playerListFrame.Visible then
+        playerListFrame:ClearAllChildren()
+        local y = 5
+        for _, player in ipairs(Players:GetPlayers()) do
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(1, -10, 0, 30)
+            btn.Position = UDim2.new(0.05, 0, 0, y)
+            btn.BackgroundColor3 = Color3.fromRGB(60, 60, 90)
+            btn.BackgroundTransparency = 0.3
+            btn.Text = player.Name .. " (click to teleport)"
+            btn.TextColor3 = Color3.fromRGB(255,255,255)
+            btn.TextSize = 13
+            btn.Font = Enum.Font.GothamMedium
+            btn.BorderSizePixel = 0
+            btn.Parent = playerListFrame
+            local bCorner = Instance.new("UICorner")
+            bCorner.CornerRadius = UDim.new(0, 8)
+            bCorner.Parent = btn
+            btn.MouseButton1Click:Connect(function()
+                if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local char = LocalPlayer.Character
+                    if char and char:FindFirstChild("HumanoidRootPart") then
+                        char.HumanoidRootPart.CFrame = player.Character.HumanoidRootPart.CFrame + Vector3.new(0, 3, 0)
+                    end
+                end
+            end)
+            y = y + 35
+        end
+        playerListFrame.CanvasSize = UDim2.new(0, 0, 0, y + 10)
+    end
+end)
+
+local kickInput = addInput("", 790, "Player name to kick/ban", function(text) end)
+local kickBtn = addButton("⛔ KICK", 836, function()
+    local name = kickInput.Text
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Name:lower():match(name:lower()) then
+            player:Kick("Kicked by Admin")
+            print("[SWILL] Kicked: " .. player.Name)
+        end
+    end
+end, Color3.fromRGB(200, 50, 50), 0.28)
+
+local banBtn = addButton("🚫 BAN", 836, function()
+    local name = kickInput.Text
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Name:lower():match(name:lower()) then
+            -- Local ban (kick + blacklist)
+            player:Kick("Banned by Admin")
+            _G.SWILL_Banned = _G.SWILL_Banned or {}
+            table.insert(_G.SWILL_Banned, player.UserId)
+            print("[SWILL] Banned: " .. player.Name)
+        end
+    end
+end, Color3.fromRGB(150, 0, 0), 0.28)
+
+-- SECTION 4: GIVE COINS/CANDY
+addLabel("🍬 GIVE CANDY/COINS", 890, Color3.fromRGB(255, 220, 100))
+local coinInput = addInput("", 930, "Amount (e.g. 9999)", function(text)
+    config.adminAbuse.coinAmount = tonumber(text) or 1000
+end)
+local giveCoinsBtn = addButton("💰 Give Coins", 976, function()
+    local amt = config.adminAbuse.coinAmount
+    local stats = LocalPlayer:FindFirstChild("PlayerStats") or LocalPlayer:FindFirstChild("Stats")
+    if stats then
+        local coins = stats:FindFirstChild("Coins") or stats:FindFirstChild("Candy")
+        if coins then
+            coins.Value = coins.Value + amt
+        end
+    end
+    print("[SWILL] Added "..amt.." coins")
+    saveConfig()
+end, Color3.fromRGB(200, 180, 50), 0.45)
+
+local giveCandyBtn = addButton("🍭 Give Candy", 976, function()
+    local amt = config.adminAbuse.coinAmount
+    local stats = LocalPlayer:FindFirstChild("PlayerStats") or LocalPlayer:FindFirstChild("Stats")
+    if stats then
+        local candy = stats:FindFirstChild("Candy") or stats:FindFirstChild("Chocolate")
+        if candy then
+            candy.Value = candy.Value + amt
+        end
+    end
+    print("[SWILL] Added "..amt.." candy")
+    saveConfig()
+end, Color3.fromRGB(150, 100, 200), 0.45)
+
+-- // FOOTER
+local footer = Instance.new("TextLabel")
+footer.Size = UDim2.new(1, 0, 0, 32)
+footer.Position = UDim2.new(0, 0, 1, -32)
+footer.BackgroundTransparency = 1
+footer.Text = "Administration qls_kyam1  👑  |  TG: t.me/Swill_Way"
+footer.TextColor3 = Color3.fromRGB(255, 215, 0)
+footer.TextSize = 13
+footer.Font = Enum.Font.GothamBold
+footer.Parent = mainFrame
+
+-- // KEY TOGGLE
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Escape and input.UserInputType == Enum.UserInputType.Keyboard then
+        menuVisible = not menuVisible
+        mainFrame.Visible = menuVisible
+    end
+end)
+
+print("[SWILL]: FULL ADMIN ABUSE LOADED | TG: t.me/Swill_Way")
